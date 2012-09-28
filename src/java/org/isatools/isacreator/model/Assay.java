@@ -38,7 +38,6 @@
 package org.isatools.isacreator.model;
 
 import org.isatools.isacreator.configuration.MappingObject;
-import org.isatools.isacreator.managers.ApplicationManager;
 import org.isatools.isacreator.gui.StudySubData;
 import org.isatools.isacreator.managers.ConfigurationManager;
 import org.isatools.isacreator.spreadsheet.model.TableReferenceObject;

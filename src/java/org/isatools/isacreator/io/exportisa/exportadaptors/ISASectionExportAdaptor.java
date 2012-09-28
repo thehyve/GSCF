@@ -2,9 +2,7 @@ package org.isatools.isacreator.io.exportisa.exportadaptors;
 
 import org.isatools.isacreator.io.IOUtils;
 import org.isatools.isacreator.io.importisa.investigationproperties.InvestigationFileSection;
-import org.isatools.isacreator.model.Contact;
 import org.isatools.isacreator.model.ISASection;
-import org.isatools.isacreator.model.InvestigationContact;
 import org.isatools.isacreator.utils.StringProcessing;
 
 import java.util.HashMap;

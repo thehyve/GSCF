@@ -1,14 +1,10 @@
 package org.isatools.isacreator;
 
-import groovy.util.GroovyTestCase;
 import org.isatools.isacreator.configuration.MappingObject;
-import org.isatools.isacreator.gui.ISAcreator;
-import org.isatools.isacreator.gui.modeselection.Mode;
 import org.isatools.isacreator.io.exportisa.ISAFileOutput;
 import org.isatools.isacreator.io.exportisa.OutputISAFiles;
 import org.isatools.isacreator.managers.ConfigurationManager;
 import org.isatools.isacreator.model.*;
-import org.junit.Test;
 
 import java.util.Vector;
 
@@ -32,9 +28,6 @@ public class ProgrammaticISATabCreationTest extends GroovyTestCase {
 
 	void testCreateISATabProgrammatically() {
 
-    	String baseDir = System.getProperty("basedir");
-        ISAcreator isAcreator = new ISAcreator(Mode.NORMAL_MODE, null, baseDir + "/Configurations/isaconfig-default_v2011-02-18/");
-
         Investigation investigation = new Investigation("gis-investigation", "GIS investigation test");
 
         investigation.addContact(new InvestigationContact("maguire", "eamonn", "J", "eamonnmag@gmail.com", "", "", "", "Oxford University", ""));
@@ -46,9 +39,10 @@ public class ProgrammaticISATabCreationTest extends GroovyTestCase {
         Assay studySample = new Assay("s_samples.txt", ConfigurationManager.selectTROForUserSelection(MappingObject.STUDY_SAMPLE));
         study.setStudySamples(studySample);
 
-        studySample.getTableReferenceObject().addRowData(new Vector<String>().toArray(
-	        new String[]{"Source Name", "Characteristics[organism]", "Protocol REF", "Sample Name"}),
-                new String[]{"source1", "homo sapiens", "sampling", "sample1"});
+		String[] newHeaders = ["Source Name", "Characteristics[organism]", "Protocol REF", "Sample Name"]
+		String[] newRowData = ["source1", "homo sapiens", "sampling", "sample1"]
+
+        studySample.getTableReferenceObject().addRowData(newHeaders,newRowData);
 
         investigation.addStudy(study);
 

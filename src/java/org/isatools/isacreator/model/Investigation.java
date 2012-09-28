@@ -38,9 +38,9 @@
 package org.isatools.isacreator.model;
 
 import org.apache.commons.collections15.map.ListOrderedMap;
-import org.isatools.isacreator.managers.ApplicationManager;
 import org.isatools.isacreator.gui.reference.DataEntryReferenceObject;
 import org.isatools.isacreator.io.importisa.investigationproperties.InvestigationFileSection;
+import org.isatools.isacreator.managers.ApplicationManager;
 import org.isatools.isacreator.ontologymanager.OntologyManager;
 
 import java.io.File;
