@@ -35,6 +35,13 @@ grails.project.dependency.resolution = {
         mavenRepo "http://repository.springsource.com/maven/bundles/external"
         mavenRepo "http://repository.springsource.com/maven/libraries/release"
         mavenRepo "http://repository.springsource.com/maven/libraries/external"
+
+	    mavenRepo "http://www.ebi.ac.uk/~maven/m2repo"
+	    mavenRepo "http://www.mvnrepository.com"
+	    mavenRepo "https://m2proxy.atlassian.com/repository/public"
+	    mavenRepo "http://download.java.net/maven/2"
+	    mavenRepo "http://www.mvnsearch.org/maven2"
+	    mavenRepo "http://frog.oerc.ox.ac.uk:8080/nexus-2.1.2/content/repositories/releases"
     }
     dependencies {
         // specify dependencies here under either 'build', 'compile', 'runtime', 'test' or 'provided' scopes eg.
@@ -43,6 +50,13 @@ grails.project.dependency.resolution = {
 		compile 'org.apache.poi:poi:3.7'
 		compile 'org.apache.poi:poi-ooxml:3.7'
 		compile 'org.apache.poi:poi-ooxml-schemas:3.7'
+
+	    // include ISACreator JAR as a library to programmatically write ISATAB files
+	    compile('org.isatools:ISAcreator:1.7.0') {
+		    excludes([group: 'org.hibernate'])
+		    // exclude SLF4J 1.5.6 too, to be sure (1.6 is imported elsewhere)
+		    excludes([ group: 'org.slf4j', name: 'slf4j-api', version: '1.5.6'])
+	    }
 
         // quartz jar is not packaged in the war properly
         // make sure to pull it in
