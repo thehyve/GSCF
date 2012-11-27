@@ -1,6 +1,3 @@
-<%@ page import="dbnp.query.Operator" %>
-<%@ page import="dbnp.studycapturing.*" %>
-<%@ page import="org.dbnp.gdt.*" %>
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -58,8 +55,8 @@
                 <g:set var="equationCount" value="${ec}"/>
                 <g:set var="equation" value="${1}"/>
                 Number of equantions: <b>${equationCount}</b>
-                <g:submitButton name="cEq" value="Add New Equation"/>
-                <g:submitButton name="cEq" value="Delete Last Equation"/>
+                <input type="button" value="Add Equation" onClick="add();">
+                <input type="button" value="Remove Equation" onClick="add();">
                 <br>
                 <br>
                 <g:select id="index" name="calcValues" optionValue="key" optionKey="value" from="${indexMap}" value=""/>

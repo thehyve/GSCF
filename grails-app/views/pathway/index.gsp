@@ -1,6 +1,3 @@
-<%@ page import="dbnp.query.Operator" %>
-<%@ page import="dbnp.studycapturing.*" %>
-<%@ page import="org.dbnp.gdt.*" %>
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>

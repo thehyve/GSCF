@@ -5,7 +5,6 @@
  *
  * @author  Ferry Jagers
  * @since	20110910
- * @package	dbnp.pathway
  *
  * Revision information:
  * $Rev$
@@ -18,9 +17,10 @@ package dbnp.pathway
 import dbnp.modules.ModuleCommunicationService;
 import dbnp.studycapturing.*
 import org.dbnp.gdt.*
+import org.pathvisio.xmlrpc.*
 
 class pathwayController {
-	def moduleCommunicationService
+    def moduleCommunicationService
 	def authenticationService
 
 	/**
@@ -41,7 +41,6 @@ class pathwayController {
      * The events defined within the selected study will by shown in a list and available for selection
 	 */
     def events = {
-        println(params)
         //get the selected study
         def studyName = params.get("selectedstudy")
         def Study selectedStudy = getSelectedStudy(studyName, studies)
@@ -152,6 +151,7 @@ class pathwayController {
      * The events defined within the selected study will by shown in a list and available for selection
 	 */
     def visualize = {
+        visualizePathVisio()
         [test: params.get("calcValues")]
     }
 
@@ -192,11 +192,45 @@ class pathwayController {
         def json
         for (assay in assays) {
             if (assay.name.equals(assayName)) {
-                def callUrl = assay.module.url + '/rest/getMeasurementData/query?assayToken=' + assay.giveUUID()
+                def callUrl = assay.module.url + '/rest/getMeasurementData/query?assayToken=' + assay.getToken()
                 json = moduleCommunicationService.callModuleMethod( assay.module.url, callUrl )
-                def meta = sample.module.url + '/rest/getMeasurementMetaData/query?sampleToken=' + sample.giveUUID() +'&measurementToken=' + json[0][0]
+                def meta = sample.module.url + '/rest/getMeasurementMetaData/query?sampleToken=' + sample.getToken() +'&measurementToken=' + json[0][0]
                 return meta
             }
         }
+    }
+
+    /**
+     * Creation of PathVisio visualisation
+     */
+    protected def visualizePathVisio() {
+        //Set inputfile (tabdelimited)
+        def inputFile = "/PATH/file.txt"
+        def gexFile = inputFile+".pgex"
+        //Set bridgeDB file, see http://bridgedb.org/data/gene_database/
+        def dbFile = "/PATH/file.bridge"
+        //Set species, e.g. HomoSapiens
+        def species = "HomoSapiens"
+        MakePgexHandler pgex = new MakePgexHandler()
+        def checkPgex = pgex.createPgex(inputFile, dbFile, species)
+        //println (checkPgex)
+        VisualizationXMLHandler vis = new VisualizationXMLHandler();
+        //Visualization options:
+        def Gsam = "logFC;Fold Change"
+        def colorNames = "blue,white,red;green,red"
+        def values = "-1,0,1;-2,2"
+        def Rsam = "P.Value"
+        def colrNames = "yellow"
+        def expressions = "[P.Value] < 0.5"
+        def exprZ = "[P.Value]< 0.5"
+        //Set the directory that contains the pathways
+        def PATHWAY = "/PATH/"
+        //Set workdirectory for output etc.
+        def WORK = "/PATH/"
+        def checkVis = vis.createVisualization(gexFile, Gsam, colorNames, values, Rsam, colrNames, expressions)
+        //println (checkVis)
+        StatExportHandler stat = new StatExportHandler()
+        def checkStat = stat.xportInfo(gexFile, dbFile, PATHWAY, exprZ, WORK)
+        //println (checkStat)
     }
 }
