@@ -343,23 +343,7 @@
 			</div>
 			</g:form>
 			<h1>Quick Start</h1>
-			<p>
-				Through the <i>studies</i> menu you can either <i>create</i>, <i>view</i> or <i>import</i> studies
-				(or study data). '<g:link controller="studyWizard" action="index" params="[jump:'create']">Create a new study</g:link>' will guide you through several steps to include your study
-				into the system where question marks (<img src="${fam.icon(name: 'help')}">) will explain what information is
-				required. You can (quick) save your study to complete it at another point in time, or use
-				<i>import study data</i> to import large datasets (for example: many subjects) from an excel sheet
-				into your study. Several data-types of different platforms (assays) can
-				be linked to your study, like <i>simple assays</i> (e.g. clinical chemistry or Western blot)
-				or <i>metabolomics</i>.
-			</p>
-			<p>
-                <i>A quick start user guide is available for download <a href="${resource(dir:'downloads', file: 'quickstart_study_capturing.pdf')}">here</a>.<br>
-				A more in depth user guide is available for download <a href="${resource(dir:'downloads', file: 'gscf_user_guide.pdf')}">here</a>.</i>
-			</p>
-            <p>
-                <i>If you encounter a problem or have a suggestion for improvement feel free to submit an issue <g:link url="${issueUrl}">here</g:link></i>
-            </p>
+			<p>this is a deploy test</p>
 		</div>
 	</div>
 </div>
