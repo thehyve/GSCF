@@ -14,10 +14,9 @@
 	<li>
       <a href="#">Import</a>
       <ul class="subnav">
-		<li><g:link controller="simpleWizard" action="index">A complete study with straightforward design</g:link></li>
 		%{--<li><g:link controller="simpleWizard" action="index" params="[inferDesign: true]">A complete study with inferred design</g:link></li>--}%
 	    <li><g:link controller="gdtImporter" action="index">A part of the study design</g:link></li>
-	    <li><g:link controller="gdtImporter" action="index">A list of studies (choose Study)</g:link></li>
+	    %{-- <li><g:link controller="gdtImporter" action="index">A list of studies (choose Study)</g:link></li> --}%
       </ul>
     </li>
     </sec:ifLoggedIn>
@@ -65,7 +64,7 @@
             <g:if env="development">
               <li><g:link controller="studyCompare" action="index">Compare</g:link></li>
             </g:if>
-            <li><g:link controller="cookdata" action="index">Prepare Data</g:link></li>
+            <!-- <li><g:link controller="cookdata" action="index">Prepare Data</g:link></li> -->
         </ul>
 	</li>
     <sec:ifLoggedIn>
