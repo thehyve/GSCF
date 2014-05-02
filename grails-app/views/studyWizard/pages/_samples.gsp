@@ -137,21 +137,21 @@
                         <div class="helpIcon"></div>
                         <div class="helpContent">
                             <h2>Time info:</h2>
-                            <g:if test="${sample.parentEvent?.template.getFieldsByType(TemplateFieldType.RELTIME).isEmpty()}">
+                            <g:if test="${sample.parentEvent?.template?.getFieldsByType(TemplateFieldType.RELTIME).isEmpty()}">
                                 <b>Not available</b>
                             </g:if>
                             <g:else>
-                                <g:each var="field" in="${sample.parentEvent?.template.getFieldsByType(TemplateFieldType.RELTIME)}">
+                                <g:each var="field" in="${sample.parentEvent?.template?.getFieldsByType(TemplateFieldType.RELTIME)}">
                                     <b>${field.name}</b><br/>
                                     ${new RelTime(sample.parentEvent?.getFieldValue(field.name))}<br/>
                                 </g:each>
                             </g:else>
                             <h2>String info:</h2>
-                            <g:if test="${sample.parentEvent?.template.getFieldsByType(TemplateFieldType.STRING).isEmpty()}">
+                            <g:if test="${sample.parentEvent?.template?.getFieldsByType(TemplateFieldType.STRING)?.isEmpty()}">
                                 <b>Not available</b>
                             </g:if>
                             <g:else>
-                                <g:each var="field" in="${sample.parentEvent?.template.getFieldsByType(TemplateFieldType.STRING)}">
+                                <g:each var="field" in="${sample.parentEvent?.template?.getFieldsByType(TemplateFieldType.STRING)}">
                                     <b>${field.name}</b><br/>
                                     ${sample.parentEvent?.getFieldValue(field.name)}<br/>
                                 </g:each>
