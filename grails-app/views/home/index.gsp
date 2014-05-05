@@ -339,7 +339,7 @@
 				<div class="search">
 					<div class="begin"><span class="label">Search term</span></div><div class="middle"><g:textField name="search_term" id="search_term" class="searchfield" value="${preterm}"/></div><div class="end"><a onClick="$('#search_term').val('');"><img src="${resource(dir: 'images', file: 'simpleQuery/spotlight-end.png')}" value="Reset" alt="Reset" border="0"></a></div>
 				</div>
-				<span style="font-style:italic;color:#aaa;font-size:10px;">more advanced searches can be performed <g:link controller="advancedQuery">here</g:link>...</span>
+				<span style="font-style:italic;color:#aaa;font-size:10px;">Searching only studies and templates. More advanced searches can be performed <g:link controller="advancedQuery">here</g:link>...</span>
 			</div>
 			</g:form>
 			<h1>Quick Start</h1>
