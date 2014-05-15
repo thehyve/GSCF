@@ -227,6 +227,8 @@ ul.topnav ul.childnav {
 	color: #727272;
 	border-top: 1px solid #727272;
 	padding-top: 5px;
+    background: url(../images/trait.jpg) no-repeat right top;
+    min-height: 150px;
 }
 
 #footer a:link, #footer a:visited, #footer a:hover {
