@@ -137,7 +137,7 @@
                         <div class="helpIcon"></div>
                         <div class="helpContent">
                             <h2>Time info:</h2>
-                            <g:if test="${sample.parentEvent?.template?.getFieldsByType(TemplateFieldType.RELTIME).isEmpty()}">
+                            <g:if test="${sample.parentEvent?.template?.getFieldsByType(TemplateFieldType.RELTIME)?.isEmpty()}">
                                 <b>Not available</b>
                             </g:if>
                             <g:else>
