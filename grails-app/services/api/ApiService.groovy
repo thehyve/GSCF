@@ -14,6 +14,8 @@
  */
 package api
 
+import grails.converters.JSON
+
 import java.security.MessageDigest
 import dbnp.studycapturing.*
 import org.dbnp.gdt.*
@@ -143,8 +145,8 @@ class ApiService implements Serializable, ApplicationContextAware {
 
             if(it instanceof Sample) {
                 item['subject'] = it.parentSubject.UUID
-                item['samplingEvent'] = it.parentEvent.UUID
-                item['eventGroup'] = it.parentEventGroup.UUID
+                item['samplingEvent'] = it.parentEvent.event.UUID
+                item['eventGroup'] = it.parentEvent.event.UUID
             }
 
             } else {
@@ -207,8 +209,7 @@ class ApiService implements Serializable, ApplicationContextAware {
 			field.ontologies.each {
 				ontologies.add([
 					'name'          : it.name,
-					'description'   : it.description,
-					'ncboId'        : it.ncboId,
+					'acronym'    : it.acronym,
 					'url'           : it.url
 				])
 			}
@@ -245,7 +246,7 @@ class ApiService implements Serializable, ApplicationContextAware {
         if (!validateRequest(deviceID,validation)) {
             // validation md5sum does not match predicted hash
 	        cleanUpBlock()
-            response.sendError(401, "Unauthorized")
+            //response.sendError(401, "Unauthorized")
         } else if (!item) {
             // no results, invalid 'item'
 	        cleanUpBlock()
@@ -259,8 +260,17 @@ class ApiService implements Serializable, ApplicationContextAware {
 	        cleanUpBlock()
 	        response.sendError(401, "Unauthorized")
         } else {
+            response.status = 200
+            response.contentType = 'application/json;charset=UTF-8'
+
             // allowed api call, execute block / closure
-            block()
+            def result = block()
+
+            if (params.containsKey('callback')) {
+                return "${params.callback}(${result as JSON})"
+            } else {
+                return result as JSON
+            }
         }
     }
 
@@ -325,6 +335,88 @@ class ApiService implements Serializable, ApplicationContextAware {
      */
     def getMeasurementData(Assay assay, SecUser user) {
         def serviceURL = "${assay.module.baseUrl}/rest/getMeasurementData"
+        def serviceArguments = "assayToken=${assay.UUID}&verbose=true"
+        def json
+
+        // call module method
+        try {
+            json = moduleCommunicationService.callModuleMethod(
+                    assay.module.baseUrl,
+                    serviceURL,
+                    serviceArguments,
+                    "POST",
+                    user
+            );
+        } catch (Exception e) {
+            log.error "api.getMeasurementData failed :: ${e.getMessage()}"
+            json = new org.codehaus.groovy.grails.web.json.JSONArray()
+        }
+
+        return json
+    }
+
+    /**
+     * get measurement data from the remote module in verbose format
+     *
+     * @param assay
+     * @param user
+     * @return
+     */
+    def getPlainMeasurementData(Assay assay, SecUser user) {
+        def serviceURL = "${assay.module.baseUrl}/rest/getPlainMeasurementDataTemp"
+        def serviceArguments = "assayToken=${assay.UUID}"
+        def json
+
+        // call module method
+        try {
+            json = moduleCommunicationService.callModuleMethod(
+                    assay.module.baseUrl,
+                    serviceURL,
+                    serviceArguments,
+                    "POST",
+                    user
+            );
+        } catch (Exception e) {
+            log.error "api.getMeasurementData failed :: ${e.getMessage()}"
+            json = new org.codehaus.groovy.grails.web.json.JSONArray()
+        }
+
+        return json
+    }
+
+    def organizeSampleMeasurements(features, samples) {
+        Map featureMeasurements = [:]
+        features.each { feature, sampleMeasurements->
+            List measurements = []
+            List attachedSamples = sampleMeasurements.keySet() as String[]
+            samples.each { sample ->
+                if (attachedSamples.contains(sample.id.toString())) {
+                    def val
+                    def measurement = sampleMeasurements[sample.id.toString()]
+
+                    if (measurement == null) val = ""
+                    else if (measurement instanceof Number) val = measurement
+                    else if (measurement.isDouble()) val = measurement.toDouble()
+                    else val = measurement.toString()
+                    measurements << val
+                } else {
+                    measurements << null
+                }
+            }
+            featureMeasurements[feature] = measurements
+        }
+        featureMeasurements
+    }
+
+    /**
+     * get measurement data from the remote module in verbose format
+     *
+     * @param assay
+     * @param user
+     * @return
+     */
+    def getFeaturesForAssay(Assay assay, SecUser user) {
+        def serviceURL = "${assay.module.baseUrl}/rest/getFeaturesForAssay"
         def serviceArguments = "assayToken=${assay.UUID}&verbose=true"
         def json
 

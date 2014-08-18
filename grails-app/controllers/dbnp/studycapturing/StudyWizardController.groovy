@@ -1860,6 +1860,9 @@ class StudyWizardController {
 		// remember the params in the flash scope
 		flash.values = params
 
+        // ensure subjects are persisted so you won't get the transient subject error
+        flow.study.save()
+
 		// iterate through groups
 		flow.study.eventGroups.each() { eventGroup ->
 			// iterate through subjects
@@ -1939,7 +1942,7 @@ class StudyWizardController {
 			// has the template changed?
 			def templateName = params.get('template_' + sample.getIdentifier())
 			if (templateName && sample.template?.name != templateName) {
-				sample.template = Template.findAllByName(params.get(templateName)).find { it.entity == dbnp.studycapturing.Sample }
+                sample.template = Template.findAllByName(templateName).find { it.entity == dbnp.studycapturing.Sample }
 			}
 
 			// validate sample

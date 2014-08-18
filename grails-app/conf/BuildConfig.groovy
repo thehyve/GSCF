@@ -19,17 +19,15 @@ grails.project.dependency.resolution = {
         // excludes 'ehcache'
     }
     log "warn" // log level of Ivy resolver, either 'error', 'warn', 'info', 'debug' or 'verbose'
+	legacyResolve true
     repositories {
 	    grailsCentral()
 	    grailsRepo "http://grails.org/plugins"
 	    mavenCentral()
 
 	    // grails 1.3.9 does not seem to properly inherit maven repo's from plugins
-	    // so explicitely put ontocat in here. When upgraded to Grails 2.x this can
+	    // so explicitely put mavenrepos in here. When upgraded to Grails 2.x this can
 	    // probably be removed
-	    mavenRepo "http://ontocat.sourceforge.net/maven/repo"
-
-		// other maven repo's
 	    mavenRepo "http://nexus.dbnp.org/content/repositories/releases"
 	    //mavenRepo "http://repository.springsource.com/maven/bundles/release"
         //mavenRepo "http://repository.springsource.com/maven/bundles/external"
@@ -76,23 +74,27 @@ grails.project.dependency.resolution = {
 		)
 
 		compile(
-            ":dbxp-base:0.1.2.5",
-            ":dbxp-sam:0.9.5.9",
+            ":dbxp-base:0.2.0.5",
+            ":dbxp-sam:0.9.7.5",
 
             ":hibernate:$grailsVersion",
 
+//            ":jquery:latest.integration",
+//            ':jquery-ui:latest.integration',
+
             ":jquery:latest.integration",
             ':jquery-ui:latest.integration',
-
+			
             ":resources:latest.integration",
             ":spring-security-core:1.2.7.3",
 
             ":famfamfam:1.0.1",
             ":mail:1.0.1",
-            ":quartz:1.0-RC5"
+            ":quartz:1.0-RC5",
+            ":webflow:2.0.8.1"
         )
 
-        compile(":gdtimporter:0.5.6.6"){transitive = false}
+        compile(":gdtimporter:0.6.0.5"){transitive = false}
 
         if (System.getProperty("grails.env") == "development") {
             // development mode only Plugins
@@ -100,10 +102,6 @@ grails.project.dependency.resolution = {
                     ":trackr:0.7.3",
                     ":grom:latest.integration"
             )
-        }
-
-        compile ':webflow:2.0.0', {
-            exclude 'grails-webflow'
         }
 
         // add { transative = false } to ignore dependency transition
@@ -115,8 +113,8 @@ grails.project.dependency.resolution = {
 //grails.plugin.location.'grom' = '../grom'
 //grails.plugin.location.'ajaxflow' = '../ajaxflow'
 //grails.plugin.location.'jumpbar' = '../jumpbar'
-//grails.plugin.location.'gdtimporter' = '../GDTImporter'
-//grails.plugin.location.'dbxp-base' = '../dbxpBase'
 //grails.plugin.location.'spring-security-core' = '../grails-spring-security-core'
+//grails.plugin.location.'gdt' = '../GDT'
 //grails.plugin.location.'dbxpSam' = '../SAM'
+//grails.plugin.location.'gdtimporter' = '../GDTImporter'
 //grails.plugin.location.'dbxp-base' = '../dbxpBase'

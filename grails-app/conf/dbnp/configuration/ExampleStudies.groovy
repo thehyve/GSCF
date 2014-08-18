@@ -1,3 +1,4 @@
+//		// Add terms manually, to avoid having to do many HTTP requests to the BioPortal website
 package dbnp.configuration
 
 /**
@@ -19,31 +20,29 @@ import org.codehaus.groovy.grails.commons.*
 
 
 class ExampleStudies {
-	public static void addTestData() {
-		// get configuration
-		def config = ConfigurationHolder.config
+    public static void addTestData() {
+        // get configuration
+        def config = ConfigurationHolder.config
 
-		// Look up the used ontologies which should be in the database by now
-		def speciesOntology				= Ontology.getOrCreateOntologyByNcboId(1132)
-		def brendaOntology				= Ontology.getOrCreateOntologyByNcboId(1005)
-		def nciOntology					= Ontology.getOrCreateOntologyByNcboId(1032)
-		def chebiOntology				= Ontology.getOrCreateOntologyByNcboId(1007)
-
-		// Add terms manually, to avoid having to do many HTTP requests to the BioPortal website
-		def mouseTerm = Term.getOrCreateTerm('Mus musculus',speciesOntology,'10090')
-		def humanTerm = Term.getOrCreateTerm('Homo sapiens',speciesOntology,'9606')
-		def arabTerm = Term.getOrCreateTerm('Arabidopsis thaliana',speciesOntology,'3702')
-		def tomatoTerm = Term.getOrCreateTerm('Solanum lycopersicum',speciesOntology,'4081')
-		def potatoTerm = Term.getOrCreateTerm('Solanum tuberosum',speciesOntology,'0000')
-		def bloodTerm = Term.getOrCreateTerm('blood plasma',brendaOntology,'BTO:0000131')
-		def c57bl6Term = Term.getOrCreateTerm('C57BL/6 Mouse',nciOntology,'C14424')
-		def glucoseTerm = Term.getOrCreateTerm('glucose',chebiOntology,'CHEBI:17234')
+        // Look up the used ontologies which should be in the database by now
+		def speciesOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCBITAXON")
+		def brendaOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/BTO")
+		def nciOntology					= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCIT")
+		def chebiOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/CHEBI")
+		def mouseTerm = Term.getOrCreateTerm('Mus musculus',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_10090")
+		def humanTerm = Term.getOrCreateTerm('Homo sapiens',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_9606")
+		def arabTerm = Term.getOrCreateTerm('Arabidopsis thaliana',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_3702")
+		def tomatoTerm = Term.getOrCreateTerm('Solanum lycopersicum',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_4081")
+		def potatoTerm = Term.getOrCreateTerm('Solanum tuberosum',speciesOntology, "http://purl.obolibrary.org/obo/NCBITaxon_4113")
+		def bloodTerm = Term.getOrCreateTerm('blood plasma',brendaOntology,"http://purl.obolibrary.org/obo/BTO_0000131")
+		def c57bl6Term = Term.getOrCreateTerm('C57BL/6 Mouse',nciOntology,"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#C14424")
+		def glucoseTerm = Term.getOrCreateTerm('glucose',chebiOntology,"http://purl.obolibrary.org/obo/CHEBI_17234")
 
 		// Add SAM assay reference
 		def clinicalModule = new AssayModule(
 			name: 'SAM module for clinical data',
 			url: config.modules.sam.url.toString(),
-            baseUrl: config.modules.sam.url.toString(),
+            baseUrl: config.modules.sam.baseurl.toString(),
 			notify: true,
 			openInFrame: false
 		).save(failOnError:true)
@@ -74,10 +73,10 @@ class ExampleStudies {
 		def config = ConfigurationHolder.config
 
 		// Look up the used ontologies which should be in the database by now
-		def speciesOntology				= Ontology.getOrCreateOntologyByNcboId(1132)
-		def brendaOntology				= Ontology.getOrCreateOntologyByNcboId(1005)
-		def nciOntology					= Ontology.getOrCreateOntologyByNcboId(1032)
-		def chebiOntology				= Ontology.getOrCreateOntologyByNcboId(1007)
+        def speciesOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCBITAXON")
+        def brendaOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/BTO")
+        def nciOntology					= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCIT")
+        def chebiOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/CHEBI")
 
 		// Look up the used templates which should also be in the database by now
 		def studyTemplate				= Template.findByName("NMC Study")
@@ -95,14 +94,14 @@ class ExampleStudies {
 		def seqAssayTemplate            = Template.findByName("Mass Sequencing assay")
 
 		// Add terms manually, to avoid having to do many HTTP requests to the BioPortal website
-		def mouseTerm = Term.getOrCreateTerm('Mus musculus',speciesOntology,'10090')
-		def humanTerm = Term.getOrCreateTerm('Homo sapiens',speciesOntology,'9606')
-		def arabTerm = Term.getOrCreateTerm('Arabidopsis thaliana',speciesOntology,'3702')
-		def tomatoTerm = Term.getOrCreateTerm('Solanum lycopersicum',speciesOntology,'4081')
-		def potatoTerm = Term.getOrCreateTerm('Solanum tuberosum',speciesOntology,'0000')
-		def bloodTerm = Term.getOrCreateTerm('blood plasma',brendaOntology,'BTO:0000131')
-		def c57bl6Term = Term.getOrCreateTerm('C57BL/6 Mouse',nciOntology,'C14424')
-		def glucoseTerm = Term.getOrCreateTerm('glucose',chebiOntology,'CHEBI:17234')
+        def mouseTerm = Term.getOrCreateTerm('Mus musculus',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_10090")
+        def humanTerm = Term.getOrCreateTerm('Homo sapiens',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_9606")
+        def arabTerm = Term.getOrCreateTerm('Arabidopsis thaliana',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_3702")
+        def tomatoTerm = Term.getOrCreateTerm('Solanum lycopersicum',speciesOntology,"http://purl.obolibrary.org/obo/NCBITaxon_4081")
+        def potatoTerm = Term.getOrCreateTerm('Solanum tuberosum',speciesOntology, "http://purl.obolibrary.org/obo/NCBITaxon_4113")
+        def bloodTerm = Term.getOrCreateTerm('blood plasma',brendaOntology,"http://purl.obolibrary.org/obo/BTO_0000131")
+        def c57bl6Term = Term.getOrCreateTerm('C57BL/6 Mouse',nciOntology,"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#C14424")
+        def glucoseTerm = Term.getOrCreateTerm('glucose',chebiOntology,"http://purl.obolibrary.org/obo/CHEBI_17234")
 
 		// Create a few persons, roles and Affiliations
 		def affiliation1 = new PersonAffiliation(
@@ -183,9 +182,10 @@ class ExampleStudies {
 			readers		: [otherUser]
         ).save(failOnError:true)
 
+		
 		def evLF = new Event(
-			startTime	: 3600,
-			endTime		: 3600 + 7 * 24 * 3600,
+			//startTime	: 3600,
+			//endTime		: 3600 + 7 * 24 * 3600,
 			template	: dietTreatmentTemplate
 		).setFieldValue('Diet', 'low fat')
 
@@ -207,30 +207,6 @@ class ExampleStudies {
 			template	: boostTreatmentTemplate
 		).setFieldValue('Control', 'false')
 
-		def evLF4 = new Event(
-			startTime	: 3600,
-			endTime		: 3600 + 4 * 7 * 24 * 3600,
-			template	: dietTreatmentTemplate
-		).setFieldValue('Diet', 'low fat')
-
-		def evHF4 = new Event(
-			startTime	: 3600,
-			endTime		: 3600 + 4 * 7 * 24 * 3600,
-			template	: dietTreatmentTemplate
-		).setFieldValue('Diet', 'high fat')
-
-		def evBV4 = new Event(
-			startTime	: 3600,
-			endTime		: 3600 + 4 * 7 * 24 * 3600,
-			template	: boostTreatmentTemplate
-		).setFieldValue('Control', 'true')
-
-		def evBL4 = new Event(
-			startTime	: 3600,
-			endTime		: 3600 + 4 * 7 * 24 * 3600,
-			template	: boostTreatmentTemplate
-		).setFieldValue('Control', 'false')
-
 		def evS = new SamplingEvent(
 			startTime	: 3600 + 7 * 24 * 3600,
 			template	: liverSamplingEventTemplate,
@@ -242,38 +218,106 @@ class ExampleStudies {
 			sampleTemplate: humanTissueSampleTemplate).setFieldValue('Sample weight', 5F)
 
 		// Add events to study
-		mouseStudy.addToEvents(evLF).addToEvents(evHF).addToEvents(evBV).addToEvents(evBL).addToEvents(evLF4).addToEvents(evHF4).addToEvents(evBV4).addToEvents(evBL4).addToSamplingEvents(evS).addToSamplingEvents(evS4).save(failOnError:true)
-
+		mouseStudy.addToEvents(evLF).addToEvents(evHF).addToEvents(evBV).addToEvents(evBL).addToSamplingEvents(evS).addToSamplingEvents(evS4).save(flush: true, failOnError:true)
+		
 		// Extra check if the SamplingEvents are saved correctly
 		evS.save(failOnError:true)
 		evS4.save(failOnError:true)
 
-		def LFBV1 = new EventGroup(name: "10% fat + vehicle for 1 week").addToEvents(evLF).addToEvents(evBV).addToSamplingEvents(evS)
+		def startTime = 3600
+		def oneWeek = 7 * 24 * 3600
+		def fourWeeks = 4 * oneWeek
+		
+		def LFBV1 = new EventGroup(name: "10% fat + vehicle for 1 week")
+			.addToEventInstances( new EventInEventGroup( event: evLF, startTime: 0, duration: oneWeek ) )
+			.addToEventInstances( new EventInEventGroup( event: evBV, startTime: 0, duration: oneWeek) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: oneWeek ) )
 
-		def LFBL1 = new EventGroup(name: "10% fat + leptin for 1 week").addToEvents(evLF).addToEvents(evBL).addToSamplingEvents(evS)
+		def LFBL1 = new EventGroup(name: "10% fat + leptin for 1 week")
+			.addToEventInstances( new EventInEventGroup( event: evLF, startTime: 0, duration: oneWeek ) )
+			.addToEventInstances( new EventInEventGroup( event: evBL, startTime: 0, duration: oneWeek) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: oneWeek ) )
 
-		def HFBV1 = new EventGroup(name: "45% fat + vehicle for 1 week").addToEvents(evHF).addToEvents(evBV).addToSamplingEvents(evS)
+		def HFBV1 = new EventGroup(name: "45% fat + vehicle for 1 week")
+			.addToEventInstances( new EventInEventGroup( event: evHF, startTime: 0, duration: oneWeek ) )
+			.addToEventInstances( new EventInEventGroup( event: evBV, startTime: 0, duration: oneWeek) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: oneWeek ) )
 
-		def HFBL1 = new EventGroup(name: "45% fat + leptin for 1 week").addToEvents(evHF).addToEvents(evBL).addToSamplingEvents(evS)
+		def HFBL1 = new EventGroup(name: "45% fat + leptin for 1 week")
+			.addToEventInstances( new EventInEventGroup( event: evHF, startTime: 0, duration: oneWeek ) )
+			.addToEventInstances( new EventInEventGroup( event: evBL, startTime: 0, duration: oneWeek) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: oneWeek ) )
 
-		def LFBV4 = new EventGroup(name: "10% fat + vehicle for 4 weeks").addToEvents(evLF4).addToEvents(evBV4).addToSamplingEvents(evS4)
+		def LFBV4 = new EventGroup(name: "10% fat + vehicle for 4 weeks")
+			.addToEventInstances( new EventInEventGroup( event: evLF, startTime: 0, duration: fourWeeks ) )
+			.addToEventInstances( new EventInEventGroup( event: evBV, startTime: 0, duration: fourWeeks) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: fourWeeks ) )
 
-		def LFBL4 = new EventGroup(name: "10% fat + leptin for 4 weeks").addToEvents(evLF4).addToEvents(evBL4).addToSamplingEvents(evS4)
+		def LFBL4 = new EventGroup(name: "10% fat + leptin for 4 weeks")
+			.addToEventInstances( new EventInEventGroup( event: evLF, startTime: 0, duration: fourWeeks ) )
+			.addToEventInstances( new EventInEventGroup( event: evBL, startTime: 0, duration: fourWeeks) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: fourWeeks ) )
 
-		def HFBV4 = new EventGroup(name: "45% fat + vehicle for 4 weeks").addToEvents(evHF4).addToEvents(evBV4).addToSamplingEvents(evS4)
+		def HFBV4 = new EventGroup(name: "45% fat + vehicle for 4 weeks")
+			.addToEventInstances( new EventInEventGroup( event: evHF, startTime: 0, duration: fourWeeks ) )
+			.addToEventInstances( new EventInEventGroup( event: evBV, startTime: 0, duration: fourWeeks) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: fourWeeks ) )
 
-		def HFBL4 = new EventGroup(name: "45% fat + leptin for 4 weeks").addToEvents(evHF4).addToEvents(evBL4).addToSamplingEvents(evS4)
-
+		def HFBL4 = new EventGroup(name: "45% fat + leptin for 4 weeks")
+			.addToEventInstances( new EventInEventGroup( event: evHF, startTime: 0, duration: fourWeeks ) )
+			.addToEventInstances( new EventInEventGroup( event: evBL, startTime: 0, duration: fourWeeks) )
+			.addToSamplingEventInstances( new SamplingEventInEventGroup( event: evS, startTime: fourWeeks ) )
+			
         // Add EventGroups to study
-        mouseStudy.addToEventGroups(LFBV1).addToEventGroups(LFBL1).addToEventGroups(HFBV1).addToEventGroups(HFBL1).addToEventGroups(LFBV4).addToEventGroups(LFBL4).addToEventGroups(HFBV4).addToEventGroups(HFBL4).save(failOnError:true)
+        mouseStudy
+			.addToEventGroups(LFBV1)
+			.addToEventGroups(LFBL1)
+			.addToEventGroups(HFBV1)
+			.addToEventGroups(HFBL1)
+			.addToEventGroups(LFBV4)
+			.addToEventGroups(LFBL4)
+			.addToEventGroups(HFBV4)
+			.addToEventGroups(HFBL4)
+			.save(failOnError:true)
 
         mouseStudy.eventGroups.each {
             // save eventGroups explicitly, to prevent 'TransientObjectException: object references an unsaved transient instance' when referencing these later
             it.save(failOnError: true)
         }
 
-        // Add subjects and samples and compose EventGroups
+		// Create subjectgroups and combine them with eventgroups
+		def subjectGroups = [:]
+		def eventGroups = [:]
+		def subjectEventGroups = [:]
+		8.times { 
+			def group = new SubjectGroup( name: "Subjectgroup " + it)
+			mouseStudy.addToSubjectGroups( group )
+			group.save( failOnError: true )
+			subjectGroups[ it ] = group
+			
+			def tmpEventGroup
+			switch( it ) {
+				case 0: tmpEventGroup = LFBV1; break;
+				case 1: tmpEventGroup = LFBL1; break;
+				case 2: tmpEventGroup = HFBV1; break;
+				case 3: tmpEventGroup = HFBL1; break;
+				case 4: tmpEventGroup = LFBV4; break;
+				case 5: tmpEventGroup = LFBL4; break;
+				case 6: tmpEventGroup = HFBV4; break;
+				case 7: tmpEventGroup = HFBL4; break;
+			}
+			
+			eventGroups[ it ] = tmpEventGroup
+			
+			def subjectEventGroup = new SubjectEventGroup( subjectGroup: group, eventGroup: tmpEventGroup, startTime: startTime )
+			mouseStudy.addToSubjectEventGroups( subjectEventGroup )
+			subjectEventGroup.save()
+			subjectEventGroups[ it ] = subjectEventGroup
+		}
+		
+        // Add subjects and samples and compose SubjectGroups
 		def x = 1
+		
 		80.times {
 			def currentSubject = new Subject(
 				name: "A" + x++,
@@ -288,17 +332,10 @@ class ExampleStudies {
             currentSubject.save(failOnError:true)
 
 			// Add subject to appropriate EventGroup
-            def tmpEventGroup
-			if (x > 70) { tmpEventGroup = HFBL4 }
-			else if (x > 60) { tmpEventGroup = HFBV4 }
-			else if (x > 50) { tmpEventGroup = LFBL4 }
-			else if (x > 40) { tmpEventGroup = LFBV4 }
-			else if (x > 30) { tmpEventGroup = HFBL1 }
-			else if (x > 20) { tmpEventGroup = HFBV1 }
-			else if (x > 10) { tmpEventGroup = LFBL1 }
-			else { tmpEventGroup = LFBV1 }
-
-            tmpEventGroup.addToSubjects(currentSubject)
+			def idx = (int) Math.floor( it / 10 )
+            def tmpSubjectGroup = subjectGroups[ idx ]
+			def tmpEventGroup = eventGroups[ idx ]
+            tmpSubjectGroup.addToSubjects(currentSubject)
 
 			// Create sample
 			def currentSample = new Sample(
@@ -306,8 +343,8 @@ class ExampleStudies {
 				material: bloodTerm,
 				template: humanBloodSampleTemplate,
 				parentSubject: currentSubject,
-				parentEvent: x > 40 ? evS4 : evS,
-                parentEventGroup: tmpEventGroup
+				parentEvent: tmpEventGroup.samplingEventInstances.asList().get(0),
+                parentSubjectEventGroup: subjectEventGroups[ idx ]
 			)
 
 			mouseStudy.addToSamples(currentSample)
@@ -315,12 +352,16 @@ class ExampleStudies {
             currentSample.save(failOnError:true)
         }
 
+		subjectGroups.each {
+			it.value.save( failOnError: true )
+		}
+		
 		// Add persons and publications to study
 		def studyperson1 = new StudyPerson(person: person1, role: role1)
 		def studyperson2 = new StudyPerson(person: person2, role: role2)
 
 		mouseStudy.addToPersons(studyperson1).addToPersons(studyperson2).addToPublications(publication1).addToPublications(publication2).save(failOnError:true)
-
+		
 		def humanStudy = new Study(
 			template		: studyTemplate,
 			title			: "NuGO PPS human study",
@@ -336,32 +377,35 @@ class ExampleStudies {
 
 		humanStudy.save(failOnError:true)
 
-		def rootGroup = new EventGroup(name: 'Root group')
-
 		def fastingEvent = new Event(
-			startTime		: 3 * 24 * 3600 + 22 * 3600,
-			endTime			: 3 * 24 * 3600 + 30 * 3600,
 			template		: fastingTreatmentTemplate).setFieldValue('Fasting period', '8h')
 
-		def bloodSamplingEventBefore = new SamplingEvent(
-			startTime		: 0,
+		def bloodSamplingEvent = new SamplingEvent(
 			template		: bloodSamplingEventTemplate,
 			sampleTemplate	: humanBloodSampleTemplate).setFieldValue('Sample volume', 4.5F)
-
-		def bloodSamplingEventAfter = new SamplingEvent(
-			startTime		: 3 * 24 * 3600 + 30 * 3600,
-			template		: bloodSamplingEventTemplate,
-			sampleTemplate	: humanBloodSampleTemplate).setFieldValue('Sample volume', 4.5F)
-
-		rootGroup.addToEvents fastingEvent
-		rootGroup.addToSamplingEvents bloodSamplingEventBefore
-		rootGroup.addToSamplingEvents bloodSamplingEventAfter
 
 		humanStudy.addToEvents(fastingEvent)
-		humanStudy.addToSamplingEvents(bloodSamplingEventBefore)
-		humanStudy.addToSamplingEvents(bloodSamplingEventAfter)
-		humanStudy.addToEventGroups rootGroup
+		humanStudy.addToSamplingEvents(bloodSamplingEvent)
+		humanStudy.save( flush: true )
+		
+		def bloodSamplingBefore = new SamplingEventInEventGroup( 	event: bloodSamplingEvent, 	startTime: 0 )
+		def bloodSamplingAfter = new SamplingEventInEventGroup( 	event: bloodSamplingEvent, 	startTime: 3 * 24 * 3600 + 30 * 3600 )
+			
+		def rootGroup = new EventGroup(name: 'Root group')
+			.addToSamplingEventInstances( bloodSamplingBefore )
+			.addToSamplingEventInstances( bloodSamplingAfter )
+			.addToEventInstances( new EventInEventGroup( event: fastingEvent, startTime: 3 * 24 * 3600 + 22 * 3600, duration: 8 * 3600 ))			
 
+		def subjectGroup = new SubjectGroup( name: "All subjects" )
+		
+		humanStudy.addToEventGroups(rootGroup)
+		humanStudy.addToSubjectGroups subjectGroup
+		
+		humanStudy.save( flush: true )
+		
+		def seGroup = new SubjectEventGroup( subjectGroup: subjectGroup, eventGroup: rootGroup, startTime: 0 )
+		humanStudy.addToSubjectEventGroups seGroup
+		
 		if (!humanStudy.validate()) {
 			println "Human study validation errors:"
 			humanStudy.errors.each {
@@ -369,7 +413,8 @@ class ExampleStudies {
 			}
 		}
 		humanStudy.save(failOnError: true)
-
+		seGroup.save( failOnError: true )
+		
 		def y = 1
 		11.times {
 			def currentSubject = new Subject(
@@ -382,16 +427,16 @@ class ExampleStudies {
 			humanStudy.addToSubjects(currentSubject)
 			currentSubject.save(failOnError:true)
 
-			rootGroup.addToSubjects currentSubject
-			rootGroup.save(failOnError:true)
+			subjectGroup.addToSubjects currentSubject
+			subjectGroup.save(failOnError:true)
 
 			def currentSample = new Sample(
 				name		: currentSubject.name + '_B',
 				material	: bloodTerm,
 				template	: humanBloodSampleTemplate,
 				parentSubject: currentSubject,
-				parentEvent	: bloodSamplingEventBefore,
-                parentEventGroup : rootGroup
+				parentEvent	: bloodSamplingBefore,
+                parentSubjectEventGroup : seGroup
 			)
 
 			humanStudy.addToSamples(currentSample)
@@ -403,8 +448,8 @@ class ExampleStudies {
 				material	: bloodTerm,
 				template	: humanBloodSampleTemplate,
 				parentSubject: currentSubject,
-				parentEvent	: bloodSamplingEventAfter,
-                parentEventGroup : rootGroup
+				parentEvent	: bloodSamplingAfter,
+                parentSubjectEventGroup : seGroup
 			)
 
 			humanStudy.addToSamples(currentSample)
@@ -418,9 +463,9 @@ class ExampleStudies {
 
 		// Add SAM assay reference
 		def clinicalModule = new AssayModule(
-			name: 'SAM module for clinical data',
+			name: 'SAM',
 			url: config.modules.sam.url.toString(),
-            baseUrl: config.modules.sam.url.toString()
+            baseUrl: config.modules.sam.baseurl.toString()
 		).save(failOnError:true)
 
 		// Add metabolomics assay reference

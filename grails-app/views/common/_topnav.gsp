@@ -7,22 +7,19 @@
     <li>
       <a href="#">Create</a>
       <ul class="subnav">
-		<li><g:link controller="studyWizard" action="index" params="[jump:'create']">Create a new study</g:link></li>
-		<li><g:link controller="studyWizard" action="index" params="[jump:'edit']">Edit a study</g:link></li>
+		<li><g:link controller="studyEdit" action="add">Create a new study</g:link></li>
+		<li><g:link controller="studyEdit" action="edit">Edit a study</g:link></li>
 	  </ul>
 	</li>
 	<li>
       <a href="#">Import</a>
       <ul class="subnav">
-		<li><g:link controller="simpleWizard" action="index">A complete study with straightforward design</g:link></li>
-		%{--<li><g:link controller="simpleWizard" action="index" params="[inferDesign: true]">A complete study with inferred design</g:link></li>--}%
 	    <li><g:link controller="gdtImporter" action="index">A part of the study design</g:link></li>
-	    <li><g:link controller="gdtImporter" action="index">A list of studies (choose Study)</g:link></li>
       </ul>
     </li>
     </sec:ifLoggedIn>
 	<li>
-		<a href="#">Browse</a>
+		<a href="#">Browse/Edit</a>
 	    <ul class="subnav">
 			<sec:ifLoggedIn>
 			<li><g:link controller="study" action="myStudies">My studies</g:link></li>
@@ -61,7 +58,9 @@
 		<a href="#">Analyze</a>
 	    <ul class="subnav">
 			<li><g:link controller="advancedQuery">Search</g:link></li>
-			<li><g:link controller="visualize" action="index">Visualize</g:link></li>
+			<%-- Disabled for now due to bugs in implementation
+				<li><g:link controller="visualize" action="index">Visualize</g:link></li>
+			--%>
             <g:if env="development">
               <li><g:link controller="studyCompare" action="index">Compare</g:link></li>
             </g:if>
@@ -73,8 +72,9 @@
       <a href="#">Export</a>
       <ul class="subnav">
         <li><g:link controller="assay" action="assayExport">Export Assay Data to File</g:link> </li>
+        <li><g:link controller="MultiStudy" action="index">Export Multiple studies to File</g:link> </li>
 	    <li><g:link controller="exporter" action="index" params="[format: 'SimpleTox']">Export studies as SimpleTox Excel file</g:link></li>
-    <li><g:link controller="exporter" action="index" params="[format: 'ISATAB']">Export studies as ISATAB archive</g:link></li>
+        <li><g:link controller="exporter" action="index" params="[format: 'ISATAB']">Export studies as ISATAB archive</g:link></li>
       </ul>
     </li>
 	<g:if test="${ConfigurationHolder.config.modules.showInMenu && AssayModule.count()}">
@@ -98,6 +98,7 @@
 				</g:if>
 				<li><g:link controller="assayModule" action="list" class="icon icon_user_add"><img src="${fam.icon(name: 'disconnect')}" alt="module administration"/> Manage Modules</g:link></li>
 				<li><g:link controller="setup" class="icon icon_user_add"><img src="${fam.icon(name: 'wand')}" alt="module administration"/> Setup wizard</g:link></li>
+                <li><g:link controller="tnoMigrate" class="icon arrow_join"><img src="${fam.icon(name: 'arrow_join')}" alt="TNO db migrate"/> Migrate Database (specific for TNO)</g:link></li>
 			    <li><g:link controller="info" class="icon icon_info"><img src="${fam.icon(name: 'lightning')}" alt="application information"/> Application information</g:link></li>
 			    <li><g:link controller="trackr" class="icon icon_info"><img src="${fam.icon(name: 'lightning')}" alt="application access log"/> Application access log</g:link></li>			    
 			</ul>

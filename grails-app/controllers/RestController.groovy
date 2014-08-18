@@ -180,7 +180,7 @@ class RestController {
 	 * Result: same as result of Example 1. 
 	 */
 	def getStudies = {
-		def user = authenticationService.getRemotelyLoggedInUser( params.consumer, params.token )
+		def authenticateduser = authenticationService.getRemotelyLoggedInUser( params.consumer, params.token )
 		
 		List returnStudies = []
 		List studies = []
@@ -191,7 +191,7 @@ class RestController {
 		else if( params.studyToken instanceof String ) {
 			def study = Study.findWhere(UUID: params.studyToken )
 			if( study ) {
-				if( !study.canRead(user) ) {
+				if( !study.canRead(authenticateduser) ) {
 					response.sendError(401)
 					return false
 				}
@@ -215,7 +215,7 @@ class RestController {
 		studies.each { study ->
 			if(study) {
 				// Check whether the person is allowed to read the data of this study
-				if( study.canRead(user)) {
+				if( study.canRead(authenticateduser)) {
 
 					def items = [studyToken:study.UUID, 'public': study.publicstudy]
 					study.giveFields().each { field ->
@@ -422,7 +422,7 @@ class RestController {
 		// Check if required parameters are present
 		def validCall = CommunicationManager.hasValidParams( params, "consumer" )
 		if( !validCall ) {
-			response.status = 500;
+		    	response.status = 500;
 			render "Error. Wrong or insufficient parameters." as JSON
 			return
 		}
@@ -594,7 +594,7 @@ class RestController {
 						'sampleToken' : sample.UUID,
 						'material'	  : sample.material?.name,
 						'subject'	  : sample.parentSubject?.name,
-						'event'		  : sample.parentEvent?.template?.name,
+						'event'		  : sample.parentEvent?.event?.template?.name,
 						'startTime'	  : sample.parentEvent?.getStartTimeString()
 					]
 
@@ -608,7 +608,7 @@ class RestController {
 			}
 
 			if(sample.parentEvent) {
-				def parentEvent = sample.parentEvent
+				def parentEvent = sample.parentEvent.event
 				def eventHash = [:]
 				parentEvent.giveFields().each { field ->
 					def name = field.name

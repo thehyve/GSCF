@@ -4,32 +4,51 @@
 <head>
 	<meta name="layout" content="main"/>
 	<g:if test="${studyList.size() == 1}">
-	<meta property="og:title" content="${studyList[0].title}"/>
-	<meta property="og:description" content="${(studyList[0].getFieldValue('description')) ? studyList[0].getFieldValue('description') : 'A study in the Generic Study Capture Framework'}"/>
+		<meta property="og:title" content="${studyList[0].title}"/>
+		<meta property="og:description" content="${(studyList[0].getFieldValue('description')) ? studyList[0].getFieldValue('description') : 'A study in the Generic Study Capture Framework'}"/>
 	</g:if>
 	<g:set var="entityName" value="${message(code: 'study.label', default: 'Study')}"/>
 	<title><g:message code="default.show.label" args="[entityName]"/></title>
-	<link rel="stylesheet" href="${resource(dir: 'css', file: 'tipTip.css')}"/>
-	<script type="text/javascript" src="${resource(dir: 'js', file: 'jquery.tipTip.minified.js')}"></script>
+	
+	<r:require modules="tiptip,timeline" />
 	<script type="text/javascript">
-		$(document).ready(function() {
-			$("a.linktips").tipTip();
-		});
-
-	    // Flag whether the timelines have been loaded
-        var timelineloaded = false;
-
+		// Set a flag to indicate that the timeline has not been loaded yet
+		var timelineLoaded = false;
+		
 		// Number of timelines that should be loaded
 		var numTimelines = ${studyList?.size()};
 
 		// This method is called on the event body.onLoad
 		$(function() {
 			$("#tabs").tabs({
+				cache: true,
                 show: function(event, ui) {
-                  // If the events tab is shown, the timeline should be redrawn
-                  if( ui.tab.hash == '#events-timeline' && !timelineloaded ) {
-                    loadTimeline( 'eventstimeline', 'eventtitles', 0 );
-                    timelineloaded = true;
+                  // If the events tab is shown, the timeline should be redrawn, if it has not been shown yet
+                  if( ui.tab.hash == '#events-timeline' && !timelineLoaded ) {
+						timelineLoaded = true;
+						                      
+                  		$.get( '<g:createLink action="timelineData" id="${studyList.id.join(',')}"/>', function( data ) {
+							// Loop througbh all studies
+                      		for( studyId in data ) {
+                          		var container = document.getElementById( 'eventstimeline-' + studyId );
+                          		if( container ) {
+                      				var timeline = new links.Timeline( container );
+
+                      				// Convert dates in the data into javascript date objects
+                      				var studyEventGroups = $.map( data[ studyId ].eventGroups, function( el, idx ) {
+                          				el.start = new Date( el.start );
+                          				el.end = new Date( el.end );
+
+                          				return el;
+                          			});
+                      				
+                      				timeline.draw( studyEventGroups );
+                          		}
+                          	}
+                      	})
+                      	.fail( function() { 
+                          	$( '#events-timeline' ).html( "Couldn't load this tab. We'll try to fix this as soon as possible."); 
+                        });
                   }
                 },
 				ajaxOptions: {
@@ -41,22 +60,8 @@
 			});
 		});
 
-		// Parameters for the SIMILE timeline
-		Timeline_ajax_url = "${resource(dir: 'js', file: 'timeline-simile/timeline_ajax/simile-ajax-api.js')}";
-		Timeline_urlPrefix = '${resource(dir: 'js', file: 'timeline-simile/')}';
-		Timeline_parameters = 'bundle=true';
-
 	</script>
 	<link rel="stylesheet" type="text/css" href="${resource(dir: 'css', file: 'studies.css')}"/>
-
-	<!-- Include scripts for the SIMILE timeline. See http://simile-widgets.org/wiki/ -->
-	<script src="${resource(dir: 'js', file: 'timeline-simile/timeline-api.js')}" type="text/javascript"></script>
-	<script src="${resource(dir: 'js', file: 'timeline-simile/custom-timeline.js')}" type="text/javascript"></script>
-	<script src="${resource(dir: 'js', file: 'timeline-simile/relative-time.js')}" type="text/javascript"></script>
-	<script src="${resource(dir: 'js', file: 'jquery-callback-1.2.js')}" type="text/javascript"></script>
-
-	<!-- Create the JSON objects for the timeline with events -->
-	<script type="text/javascript" src="<g:createLink action="createTimelineBandsJs" id="${studyList.id.join(',')}"/>" type="text/javascript"></script>
 </head>
 <body>
 
@@ -70,8 +75,8 @@
 			<ul>
 				<li tab="study"><a href="#study">Study Information</a></li>
 				<li tab="subjects"><a href="<g:createLink action="show_subjects" id="${studyList.id.join(',')}"/>" title="Subjects"><span>Subjects</span></a></li>
-				<li tab="events"><a href="#events-timeline"><span>Events timeline</span></a></li>
-				<li tab="events"><a href="<g:createLink action="show_events_table" id="${studyList.id.join(',')}"/>" title="Events table"><span>Events table</span></a></li>
+				<li tab="events"><a href="#events-timeline"><span>Treatment&Sample types timeline</span></a></li>
+				<li tab="events"><a href="<g:createLink action="show_events_table" id="${studyList.id.join(',')}"/>" title="Events table"><span>Treatment&Sample types</span></a></li>
 				<li tab="assays"><a href="<g:createLink action="show_assays" id="${studyList.id.join(',')}"/>" title="Assays"><span>Assays</span></a></li>
 				<li tab="samples"><a href="<g:createLink action="show_samples" id="${studyList.id.join(',')}"/>" title="Samples"><span>Samples</span></a></li>
 				<li tab="study"><a href="<g:createLink action="show_persons" id="${studyList.id.join(',')}"/>" title="Persons"><span>Persons</span></a></li>
@@ -194,10 +199,8 @@
 			</g:if>
 			<g:else>
 			  <g:each in="${studyList}" var="study" status="i">
-				<div style="margin: 10px; ">
-				  <div class="eventtitles" id="eventtitles-${i}"></div>
-				  <div class="eventstimeline" id="eventstimeline-${i}"></div>
-				</div>
+				  <h4>${study.title}</h4>
+				  <div class="eventstimeline" id="eventstimeline-${study.id}"></div>
 			  </g:each>
 			  <noscript>
 				Javascript is needed for showing the timeline, but it has been disabled in your browser. Please enable javascript or use
@@ -221,11 +224,11 @@
 				<g:hiddenField name="id" value="${studyInstance?.id}"/>
 				<g:if test="${studyInstance.canWrite(loggedInUser)}">
 					<span class="button">
-						<g:link class="edit linktips" title="Edit this stuy" onclick="getTab(); return false;">
-							${message(code: 'default.button.edit.label', default: 'Edit')}
-						</g:link>
+                        <g:link class="edit linktips" title="Edit this study" controller="studyEdit" action="edit" id="${studyInstance?.id}">
+                            ${message(code: 'default.button.edit.label', default: 'Edit')}
+                        </g:link>
 					</span>
-					<span class="button"><g:link class="edit linktips" title="Edit the basic properties of this study" controller="simpleWizard" action="index" id="${studyInstance?.id}">Simple edit</g:link></span>
+					<%--<span class="button"><g:link class="edit linktips" title="Edit the basic properties of this study" controller="simpleWizard" action="index" id="${studyInstance?.id}">Simple edit</g:link></span>--%>
 				</g:if>
 				<g:if test="${studyInstance.isOwner(loggedInUser) || loggedInUser?.hasAdminRights()}">
 					<span class="button"><g:actionSubmit class="delete" action="delete" value="${message(code: 'default.button.delete.label', default: 'Delete')} WHOLE STUDY" onclick="return confirm('${message(code: 'default.button.delete.confirm.message', default: 'Are you sure?')}');"/></span>

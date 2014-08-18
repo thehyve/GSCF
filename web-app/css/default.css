@@ -436,12 +436,12 @@ td.buttons input {
 }
 
 .ui-autocomplete .about {
-	font-size: 8px;
+	font-size: 10px;
 	color: #006DBA;
 }
 
 .ui-autocomplete .from {
-	font-size: 8px;
+	font-size: 10px;
 	color: #666;
 }
 
@@ -521,3 +521,5 @@ label.r_on { background: url(../images/inputboxes/radio-on.png) no-repeat; color
 #dialog-creative-commons li {
     margin-left: 20px;
 }
+
+#assaySelect select, #assaySelect input { vertical-align: top; }

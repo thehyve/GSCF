@@ -88,7 +88,7 @@ log4j = {
     //appenders {
     //    console name:'stdout', layout:pattern(conversionPattern: '%c{2} %m%n')
     //}
-
+	
     error  'org.codehaus.groovy.grails.web.servlet',        // controllers
            'org.codehaus.groovy.grails.web.pages',          // GSP
            'org.codehaus.groovy.grails.web.sitemesh',       // layouts
@@ -100,6 +100,11 @@ log4j = {
            'org.springframework',
            'org.hibernate',
            'net.sf.ehcache.hibernate'
+
+	warn  'org.codehaus.groovy.grails.orm.hibernate',      // hibernate integration
+			'org.hibernate'
+			
+	info	'grails.app.controllers.generic.installation.TnoMigrateController' 
 }
 
 graphviz {
@@ -165,6 +170,15 @@ gdtImporter.parentEntityClassName = "dbnp.studycapturing.Study"
 // default application properties
 application.title = "Generic Study Capture Framework"
 application.template.admin.email = "me@example.com"
+
+
+grails.resources.modules = {
+	overrides {
+		'jquery-theme' {
+			resource id:'theme', url:'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/cupertino/jquery-ui.min.css'
+		}
+	}
+}
 
 // ****** trackR Config ******
 trackr.path = "/tmp/trackr/"
