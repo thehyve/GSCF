@@ -34,6 +34,7 @@
 				</g:form>
 			</div>
 
+            <!-- Hide this for TraIT
 			<div class="left right">
 				<g:form url="[action:'add',controller:'userRegistration']" class="clearfix registration">
 					<input type="hidden" name="targetUri" value="${targetUri}"/>
@@ -55,7 +56,7 @@
 
 					<input type="submit" name="submit" value="Register" class="bt_register"/>
 				</g:form>
-			</div>
+			</div> -->
 		</div>
 	</div>
 

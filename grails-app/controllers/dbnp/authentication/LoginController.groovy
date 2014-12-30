@@ -235,6 +235,7 @@ class LoginController {
 		}
 		else {
 			flash.message = msg
+            println SpringSecurityUtils.securityConfig
 			redirect action: auth, params: params
 		}
 	}

@@ -17,6 +17,7 @@ import grails.plugins.springsecurity.Secured
 import org.codehaus.groovy.grails.commons.GrailsApplication
 import grails.util.GrailsUtil
 
+@Secured(['IS_AUTHENTICATED_REMEMBERED'])
 class UserRegistrationController {
 	static int DAYS_BEFORE_EXPIRY = 3;
 	static int DAYS_BEFORE_EXPIRY_ADMIN = 365;
