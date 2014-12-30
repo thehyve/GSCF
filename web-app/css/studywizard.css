@@ -27,12 +27,21 @@ div .upload_button {
 }
 
 div .upload_info {
-    display: inline; color: #006dba;
-    margin-left: 5px; 
+    display: inline;
+    color: #006dba;
+    margin-left: 21px;
 }
 
 div .upload_info a {
 	text-decoration: underline;
+}
+
+div .upload_del {
+    display: inline;
+    position: absolute;
+    top: 7px;
+    left: 52px;
+    z-index: 101;
 }
 
 div .upload_del img {

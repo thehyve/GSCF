@@ -465,7 +465,7 @@ function enableButton(dialog_selector, button_name, enable) {
 
 	if (dlgButton) {
 		if (enable) {
-			dlgButton.removeAttr('disabled', '');
+			dlgButton.removeAttr('disabled');
 			dlgButton.removeClass('ui-state-disabled');
 		} else {
 			dlgButton.attr('disabled', 'disabled');

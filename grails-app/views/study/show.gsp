@@ -43,7 +43,7 @@
 
 		// Parameters for the SIMILE timeline
 		Timeline_ajax_url = "${resource(dir: 'js', file: 'timeline-simile/timeline_ajax/simile-ajax-api.js')}";
-		Timeline_urlPrefix = '${resource(dir: 'js', file: 'timeline-simile/')}';
+		Timeline_urlPrefix = Timeline_ajax_url.slice(0,Timeline_ajax_url.length-32);
 		Timeline_parameters = 'bundle=true';
 
 	</script>
