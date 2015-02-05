@@ -76,8 +76,8 @@ grails.project.dependency.resolution = {
 		)
 
 		compile(
-            ":dbxp-base:0.1.3.1.rc5",
-            ":dbxp-sam:0.9.6.3.trait",
+            ":dbxp-base:0.1.3.4",
+            ":dbxp-sam:0.9.6.6",
 
             ":hibernate:$grailsVersion",
 
@@ -96,7 +96,7 @@ grails.project.dependency.resolution = {
             ":quartz:1.0-RC5"
         )
 
-        compile(":gdtimporter:0.5.6.9"){transitive = false}
+        compile(":gdtimporter:0.5.8.0.trait"){transitive = false}
 
         if (System.getProperty("grails.env") == "development") {
             // development mode only Plugins
@@ -123,4 +123,4 @@ grails.project.dependency.resolution = {
 //grails.plugin.location.'dbxp-base' = '../dbxpBase'
 //grails.plugin.location.'spring-security-core' = '../grails-spring-security-core'
 //grails.plugin.location.'dbxpSam' = '../SAM'
-//grails.plugin.location.'dbxp-base' = '../dbxpBase'
+//grails.plugin.location.'matrixImporter' = '../matrixImporter'
