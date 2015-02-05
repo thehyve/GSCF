@@ -76,7 +76,7 @@ grails.project.dependency.resolution = {
 		)
 
 		compile(
-            ":dbxp-base:0.1.3.4",
+            ":dbxp-base:0.1.3.5",
             ":dbxp-sam:0.9.6.6",
 
             ":hibernate:$grailsVersion",
@@ -120,6 +120,7 @@ grails.project.dependency.resolution = {
 //grails.plugin.location.'ajaxflow' = '../ajaxflow'
 //grails.plugin.location.'jumpbar' = '../jumpbar'
 //grails.plugin.location.'gdtimporter' = '../GDTImporter'
+//grails.plugin.location.'gdt' = '../GDT'
 //grails.plugin.location.'dbxp-base' = '../dbxpBase'
 //grails.plugin.location.'spring-security-core' = '../grails-spring-security-core'
 //grails.plugin.location.'dbxpSam' = '../SAM'
