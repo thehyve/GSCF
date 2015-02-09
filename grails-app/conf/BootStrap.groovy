@@ -94,6 +94,8 @@ class BootStrap {
 		TemplateEntity.getField(Sample.domainFields, 'material').ontologies = [
 			Ontology.getOrCreateOntologyByNcboId(1005)		// BRENDA Tissue / enzyme source
 		]
+		
+		System.setProperty "jsse.enableSNIExtension", "false";
 	}
 
 	def destroy = {
