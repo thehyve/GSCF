@@ -1,7 +1,7 @@
 package dbnp.studycapturing
 
 import grails.converters.JSON
-
+import org.codehaus.groovy.grails.web.json.JSONObject
 import org.dbnp.gdt.RelTime
 import org.dbnp.gdt.Template
 
@@ -9,8 +9,8 @@ import dbnp.authentication.SecUser
 
 class StudyEditDesignController {
 	def authenticationService
-	def datatablesService
 	def studyEditService
+        def datatablesService
 	
 	def index() {
 		def study = getStudyFromRequest( params )
@@ -18,7 +18,7 @@ class StudyEditDesignController {
 			redirect action: "add"
 			return
 		}
-
+		
 		[
 			study: study,
 			templates: [
@@ -59,7 +59,6 @@ class StudyEditDesignController {
 		def result
 		if( subjectEventGroup.save() ) {
 			study.addToSubjectEventGroups( subjectEventGroup );
-			studyEditService.generateSamples( subjectEventGroup )
 			
 			result = [ status: "OK", id: subjectEventGroup.id, group: subjectGroupName, subjectGroupId: subjectEventGroup.subjectGroup?.id, eventGroupId: subjectEventGroup.eventGroup?.id ]
 		} else {
@@ -76,7 +75,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def subjectEventGroupUpdate() {
-		def subjectEventGroup = SubjectEventGroup.read( params.long( "id" ) );
+		def subjectEventGroup = SubjectEventGroup.get( params.long( "id" ) );
 
 		if( !subjectEventGroup ) {
 			response.status = 404
@@ -173,7 +172,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def eventGroupUpdate() {
-		def eventGroup = EventGroup.read( params.long( "id" ) );
+		def eventGroup = EventGroup.get( params.long( "id" ) );
 
 		if( !eventGroup ) {
 			response.status = 404
@@ -201,7 +200,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def eventGroupDelete() {
-		def eventGroup = EventGroup.read( params.long( "id" ) );
+		def eventGroup = EventGroup.get( params.long( "id" ) );
 
 		if( !eventGroup ) {
 			response.status = 404
@@ -221,11 +220,20 @@ class StudyEditDesignController {
 	 * 		events
 	 */
 	def eventGroupDetails( long id ) {
-		def eventGroup = EventGroup.read( id );
+		def eventGroup = EventGroup.read( id )
 
 		if( !eventGroup ) {
 			response.status = 404
 			render "Not found"
+			return
+		}
+
+		def study = eventGroup.parent
+		def user = authenticationService.getLoggedInUser()
+
+		if( !study.canRead( user ) ) {
+			response.status = 404
+			render "Not authorized"
 			return
 		}
 
@@ -236,6 +244,7 @@ class StudyEditDesignController {
 			name: eventGroup.name,
 			start: studyStart * 1000,
 			duration: eventGroup.duration.value,
+                        contents: eventGroup.contents,
 			end: ( studyStart + eventGroup.duration.value ) * 1000,
 			events: []
 		]
@@ -329,7 +338,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def eventInEventGroupUpdate() {
-		def eventInEventGroup = EventInEventGroup.read( params.long( "id" ) );
+		def eventInEventGroup = EventInEventGroup.get( params.long( "id" ) );
 
 		if( !eventInEventGroup ) {
 			response.status = 404
@@ -360,7 +369,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def eventInEventGroupDelete() {
-		def eventInEventGroup = EventInEventGroup.read( params.long( "id" ) );
+		def eventInEventGroup = EventInEventGroup.get( params.long( "id" ) );
 
 		if( !eventInEventGroup ) {
 			response.status = 404
@@ -397,9 +406,6 @@ class StudyEditDesignController {
 	
 		def result
 		if( samplingEventInEventGroup.save() ) {
-			// Generate new samples for this eventGroup
-			studyEditService.generateSamples( samplingEventInEventGroup )
-			
 			result = [ status: "OK", id: samplingEventInEventGroup.id, eventGroupId: eventGroupId, eventId: eventId, type: "samplingEvent" ]
 		} else {
 			response.status = 500
@@ -414,7 +420,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def samplingEventInEventGroupUpdate() {
-		def samplingEventInEventGroup = SamplingEventInEventGroup.read( params.long( "id" ) );
+		def samplingEventInEventGroup = SamplingEventInEventGroup.get( params.long( "id" ) );
 
 		if( !samplingEventInEventGroup ) {
 			response.status = 404
@@ -442,7 +448,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def samplingEventInEventGroupDelete() {
-		def samplingEventInEventGroup = SamplingEventInEventGroup.read( params.long( "id" ) );
+		def samplingEventInEventGroup = SamplingEventInEventGroup.get( params.long( "id" ) );
 
 		if( !samplingEventInEventGroup ) {
 			response.status = 404
@@ -499,7 +505,7 @@ class StudyEditDesignController {
 	}
 	
 	def eventUpdate() {
-		def entity = Event.read( params.long( "id" ) )
+		def entity = Event.get( params.long( "id" ) )
 		
 		if( !entity ) {
 			response.status = 404
@@ -508,7 +514,7 @@ class StudyEditDesignController {
 		}
 		
 		if( request.post ) {
-			putParamsIntoEntity( entity ) 
+			studyEditService.putParamsIntoEntity( entity, params )
 	
 			if( params._action == "save" ) {
 				if( entity.validate() ) {
@@ -533,7 +539,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def eventDelete() {
-		def event = Event.read( params.long( "id" ) );
+		def event = Event.get( params.long( "id" ) );
 
 		if( !event ) {
 			response.status = 404
@@ -591,7 +597,7 @@ class StudyEditDesignController {
 	}
 	
 	def samplingEventUpdate() {
-		def entity = SamplingEvent.read( params.long( "id" ) )
+		def entity = SamplingEvent.get( params.long( "id" ) )
 		
 		if( !entity ) {
 			response.status = 404
@@ -600,7 +606,7 @@ class StudyEditDesignController {
 		}
 		
 		if( request.post ) {
-			putParamsIntoEntity( entity )
+			studyEditService.putParamsIntoEntity( entity, params )
 	
 			if( params._action == "save" ) {
 				if( entity.validate() ) {
@@ -625,7 +631,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def samplingEventDelete() {
-		def samplingEvent = SamplingEvent.read( params.long( "id" ) );
+		def samplingEvent = SamplingEvent.get( params.long( "id" ) );
 
 		if( !samplingEvent ) {
 			response.status = 404
@@ -651,6 +657,8 @@ class StudyEditDesignController {
 
 		def name = params.get( "name" )
 		def result
+                def subjectIds = params.subjects ? params.subjects.split(",") : []
+                
 		if( name ) {
 			subjectGroup.name = name
 			
@@ -658,7 +666,7 @@ class StudyEditDesignController {
 				study.addToSubjectGroups( subjectGroup );
 				subjectGroup.save( flush: true )
 				
-				handleSubjectsInSubjectGroup( params[ "subjects[]" ], subjectGroup )
+				handleSubjectsInSubjectGroup( subjectIds, subjectGroup )
 				result = [ status: "OK", id: subjectGroup.id, name: subjectGroup.name ]
 			} else {
 				response.status = 500
@@ -678,8 +686,8 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def subjectGroupUpdate() {
-		def subjectGroup = SubjectGroup.read( params.long( "id" ) );
-
+		def subjectGroup = SubjectGroup.get( params.long( "id" ) );
+                
 		if( !subjectGroup ) {
 			response.status = 404
 			render "Not found"
@@ -688,21 +696,19 @@ class StudyEditDesignController {
 
 		def name = params.get( "name" )
 		def result = [ "OK" ]
-		
+		def subjectIds = params.subjects ? params.subjects.split(",") : []
 		if( name && name != subjectGroup.name ) {
 			subjectGroup.name = name
 
 			if( subjectGroup.save() ) {
-				handleSubjectsInSubjectGroup( params[ "subjects[]" ], subjectGroup )
-				studyEditService.generateSamples( subjectGroup )
+				handleSubjectsInSubjectGroup( subjectIds, subjectGroup )
 			} else {
 				response.status = 500
 				result  = [ status: "Error" ]
 			}
 			
 		} else {
-			handleSubjectsInSubjectGroup( params[ "subjects[]" ], subjectGroup )
-			studyEditService.generateSamples( subjectGroup )
+			handleSubjectsInSubjectGroup( subjectIds, subjectGroup )
 		}
 		
 		render result as JSON
@@ -713,7 +719,7 @@ class StudyEditDesignController {
 	 * @return
 	 */
 	def subjectGroupDelete() {
-		def subjectGroup = SubjectGroup.read( params.long( "id" ) );
+		def subjectGroup = SubjectGroup.get( params.long( "id" ) );
 
 		if( !subjectGroup ) {
 			response.status = 404
@@ -742,6 +748,15 @@ class StudyEditDesignController {
 			return
 		}
 
+		def study = subjectGroup.parent
+		def user = authenticationService.getLoggedInUser()
+
+		if( !study.canRead( user ) ) {
+			response.status = 404
+			render "Not authorized"
+			return
+		}
+
 		def resultData = [
 			id: subjectGroup.id,
 			name: subjectGroup.name,
@@ -757,6 +772,7 @@ class StudyEditDesignController {
 		
 		if( !subjectIds && subjectGroup.subjects ) {
 			subjectGroup.subjects.clear()
+                        subjectGroup.save(flush: true)
 			return
 		}
 		
@@ -779,8 +795,59 @@ class StudyEditDesignController {
 				subjectGroup.addToSubjects( subject )
 			} 
 		}
-
+        
+                subjectGroup.save(flush: true)
 	}
+    
+        /**
+         * Returns data for the datatable to select subjects in a subjectgroup
+         * @return
+         */
+        def dataTableSubjectSelection() {
+                def study = Study.read( params.long( "id" ) )
+    
+                if( !study ) {
+                    render dataTableError( "Invalid study given: " + study ) as JSON
+                    return
+                }
+
+                def user = authenticationService.getLoggedInUser()
+
+                if( !study.canRead( user ) ) {
+                    response.status = 404
+                    render "Not authorized" as JSON
+                    return
+                }
+    
+                def searchParams = datatablesService.parseParams( params )
+                def data = studyEditService.getSubjectsForSubjectSelection( searchParams, study )
+    
+                render datatablesService.createDatatablesOutput( data, params, { entry ->
+                        def output = entry as List
+                        def subject = entry[ 0 ]
+                        
+                        // Convert columns
+                        output[ 0 ] = subject.id
+
+                        // Generate output (the checkbox columns should be first
+                        output
+                }) as JSON
+        }
+        
+        /**
+         * Returns an error response for the datatable
+         * @param error
+         * @return
+         */
+        protected def dataTableError( error ) {
+                return [
+                        sEcho:                                  params.sEcho,
+                        iTotalRecords:                  0,
+                        iTotalDisplayRecords:   0,
+                        aaData:                                 [],
+                        errorMessage:                   error
+                ]
+        }
 
 	
 	/**

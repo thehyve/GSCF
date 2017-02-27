@@ -1,9 +1,11 @@
 package dbnp.studycapturing
 
+import groovy.sql.Sql
 import org.codehaus.groovy.grails.orm.hibernate.cfg.GrailsDomainBinder
 import org.dbnp.gdt.*
 
 class StudyEditService {
+	def dataSource
 
 	/**
 	 * Returns a proper list of data to generate a datatable with templated entities.
@@ -61,6 +63,35 @@ class StudyEditService {
 		
 		output 
 	}
+    
+        /**
+         * Returns a proper list of subjects samples to generate a datatable for subject selection in a group
+         * @param params        Parameters to search
+                        int                     offset                  Display start point in the current data set.
+                        int                     max                             Number of records that the table can display in the current draw. It is expected that the number of records returned will be equal to this number, unless the server has fewer records to return.
+                        
+                        string          search                  Global search field
+                        
+                        int                     sortColumn              Column being sorted on (you will need to decode this number for your database)
+                        string          sortDirection   Direction to be sorted - "desc" or "asc".
+    
+                          Template      template                Template for the entities to read
+         * @return                      A map with all data. For example:
+                         List           entities                List with all entities
+                         int                    total                   Total number of records in the whole dataset (without taking search, offset and max into account)
+                         int                    totalFiltered   Total number of records in the search (without taking offset and max into account)
+                         int                    ids                             Total list of filtered ids
+         */
+        def getSubjectsForSubjectSelection( searchParams, study ) {
+            def query = generateHQLForSubjectSelection( searchParams, study )
+            
+            // Also count the total number of results in the dataset
+            def output = generateOutput( query, searchParams, Subject )
+            output.total = Subject.countByParent( study )
+            
+            output
+        }
+    
 	
 	/**
 	 * Returns a proper list of samples to generate a datatable with templated entities.
@@ -74,7 +105,7 @@ class StudyEditService {
 		def output = [:]
 		
 		// First select the number of results
-		def filteredIds = entity.executeQuery( "SELECT s.id FROM " + query.from + " WHERE " + query.where, query.params );
+		def filteredIds = entity.executeQuery( "SELECT DISTINCT s.id FROM " + query.from + " WHERE " + query.where, query.params );
 		output.totalFiltered = filteredIds.size()
 		output.ids = filteredIds
 		
@@ -82,11 +113,14 @@ class StudyEditService {
 		def hql = "SELECT " + query.select + " FROM " + query.from + " WHERE " + query.where + " " + ( query.order ? " ORDER BY " + query.order : "" )
 		output.entities = entity.executeQuery( hql, query.params, [ max: searchParams.max, offset: searchParams.offset ] )
 
+                if( query.chooseFirst ) {
+                    output.entities = output.entities.collect { it[0] }
+                }
+        
 		output
 
 	}
 
-	
 	/**
 	 * Generates the HQL to search
 	 * @return Map	
@@ -177,11 +211,28 @@ class StudyEditService {
 		// Add ordering; to determine the column to sort on
 		def sortColumnIndex = searchParams.sortColumn ?: 0
 		def sortOrder = searchParams.sortDirection ?: "ASC"
-		
+
+		//In order to have a natural 'order by' for the domainField 'name' we have to use a custom sort
+		def naturalSort = domainFields[ sortColumnIndex ]?.name.equals('name') ? true : false
+
+		// Prepare for differences in selection
+		def select = "DISTINCT s"
+
+		// Custom 'order by' is not allowed when using DISTINCT
+		if ( naturalSort ) {
+			select = "s"
+		}
+
+		def chooseFirst = false
+                
 		if( sortColumnIndex != null || sortColumnIndex >= ( domainFields.size() + template.fields.size() ) ) {
 			if( sortColumnIndex < domainFields.size() ) {
-				def sortOn = domainFields[ sortColumnIndex ]?.name;
+				def sortOn = domainFields[ sortColumnIndex ]?.name
 				orderBy = "s." + sortOn + " " + sortOrder
+
+				if ( naturalSort ) {
+					orderBy = "length(s." + sortOn + ") " + sortOrder + ", s." + sortOn + " " + sortOrder
+				}
 			} else {
 				// Sort on template field: use a join in the sql
 				// select * from subjects inner join template_fields sortField on ....
@@ -191,6 +242,12 @@ class StudyEditService {
 				joins << "s." + store + " as orderJoin WITH index( orderJoin ) = :sortField"
 				hqlParams[ "sortField" ] = sortField.name
 				orderBy = "orderJoin " + sortOrder
+                                
+                                // When ordering  by a templatefield, we have to include it in the query as well
+                                // However, in order to handle the object properly, we will need to tell the 
+                                // calling method that only the first object should be chosen.
+                                select += ", orderJoin"
+                                chooseFirst = true
 			}
 		}
 			
@@ -204,11 +261,12 @@ class StudyEditService {
 			where += " AND (" + whereClause.join( " OR " ) + ") "
 			
 		[
-			select: "s",
+			select: select,
 			from: from,
 			where: where,
 			order: orderBy,
-			params: hqlParams
+			params: hqlParams,
+                        chooseFirst: chooseFirst
 		]
 	}
 	
@@ -273,7 +331,13 @@ class StudyEditService {
 		]
 		
 		if( sortColumnIndex != null || sortColumnIndex < fields.size() ) {
-			orderBy = fields[ sortColumnIndex ] + " " + sortOrder
+			//In order to have a natural 'order by' for sample names we have to use a custom sort for that field
+			if ( sortColumnIndex == 0 ) {
+				orderBy = "length(" + fields[ sortColumnIndex ] + ") " + sortOrder + ", " + fields[ sortColumnIndex ] + " " + sortOrder
+			}
+			else {
+				orderBy = fields[ sortColumnIndex ] + " " + sortOrder
+			}
 		}
 			
 		// Now build up the query, except for the SELECT part.
@@ -293,7 +357,84 @@ class StudyEditService {
 			params: hqlParams
 		]
 	}
-	
+    
+    /**
+     * Generates the HQL to search assay samples
+     * @return Map
+     *              select
+     *              from
+     *              where
+     *              order
+     *              params
+     */
+    def generateHQLForSubjectSelection( searchParams, study ) {
+            def entity = Subject
+            
+            // Search in
+            //      subject name
+            //      subject template name
+            //      subject speciies
+            
+            // Create an HQL query as it gives us the most flexibility in searching and ordering
+            def from = " Subject s "
+            def joins = []
+            def whereClause = []
+            def hqlParams = [ study: study ]
+            def orderBy = ""
+
+            // Add joins for related information
+            joins << "s.template as template"
+            
+            // First add searching
+            if( searchParams.search ) {
+                    // With searching, retrieving the data requires joining all text and term fields
+                    def searchTerm = searchParams.search.toLowerCase()
+                    hqlParams[ "search" ] = "%" + searchTerm + "%"
+                    
+                    whereClause << "lower(s.name) LIKE :search"
+                    whereClause << "lower(template.name) LIKE :search"
+                    whereClause << "lower(s.species.name) LIKE :search"
+            }
+            
+            // Add ordering; to determine the column to sort on
+            def sortColumnIndex = searchParams.sortColumn ?: 0
+            def sortOrder = searchParams.sortDirection ?: "ASC"
+            
+            def fields = [
+                    "s.name",
+                    "template.name",
+                    "s.species.name",
+            ]
+            
+            if( sortColumnIndex != null || sortColumnIndex < fields.size() ) {
+				//In order to have a natural 'order by' for subject names we have to use a custom sort for that field
+				if ( sortColumnIndex == 0 ) {
+					orderBy = "length(" + fields[ sortColumnIndex ] + ") " + sortOrder + ", " + fields[ sortColumnIndex ] + " " + sortOrder
+				}
+				else {
+					orderBy = fields[ sortColumnIndex ] + " " + sortOrder
+				}
+            }
+                    
+            // Now build up the query, except for the SELECT part.
+            if( joins )
+                    from += " LEFT JOIN " + joins.join( " LEFT JOIN " )
+            
+            def where =  "s.parent = :study"
+                    
+            if( whereClause )
+                    where += " AND (" + whereClause.join( " OR " ) + ") "
+                    
+            [
+                    select: "s, " + fields.join( ", " ),
+                    from: from,
+                    where: where,
+                    order: orderBy,
+                    params: hqlParams
+            ]
+    }
+
+
 	def putParentIntoEntity( entity, params ) {
 		// Was a parentID given
 		if( params.parentId ) {
@@ -305,7 +446,6 @@ class StudyEditService {
 		// did the template change?
 		if (params.get('template') && entity.template?.name != params.get('template')) {
 			// set the template
-			// TODO: find the template with the right entity
 			entity.template = Template.findAllByName(params.remove('template') ).find { it.entity == entity.class }
 		}
 
@@ -320,110 +460,103 @@ class StudyEditService {
 
 		return entity
 	}
-	
-	/**
-	 * Generate new samples for a newly created subjectEventGroup
-	 * @param subjectEventGroup
-	 * @return
-	 */
-	protected def generateSamples( SubjectEventGroup subjectEventGroup ) {
-		def study = subjectEventGroup.parent
-		
-		// Make sure we have a sample for each subject in combination with each samplingevent
-		subjectEventGroup.subjectGroup.subjects?.each { subject ->
-			subjectEventGroup.eventGroup.samplingEventInstances?.each { samplingEventInstance ->
-				createSample( study, subject, samplingEventInstance, subjectEventGroup )
-			}
-		}
-	}
-	
-	/**
-	 * Generate new samples for a newly created samplingEventInEventGroup
-	 * @param subjectEventGroup
-	 * @return
-	 */
-	protected def generateSamples( SamplingEventInEventGroup samplingEventInEventGroup ) {
-		def study = samplingEventInEventGroup.event.parent
-		def eventGroup = samplingEventInEventGroup.eventGroup
-		
-		// Create a new sample for this sampling event and each subject that is connected to this eventgroup
-		eventGroup.subjectEventGroups?.each { subjectEventGroup ->
-			subjectEventGroup.subjectGroup.subjects?.each { subject ->
-				createSample( study, subject, samplingEventInEventGroup, subjectEventGroup )
-			}
-		}
-	}
 
 	/**
-	 * Generate new samples for an updated subjectGroup
-	 * @param subjectEventGroup
-	 * @return
+	 * Generate new samples for a newly created subjectEventGroup
+	 * @param study the study
+	 * @param subjectEventGroups list of SubjectEventGroups
+	 * @return Number of inserts/updates
 	 */
-	protected def generateSamples( SubjectGroup subjectGroup ) {
-		def study = subjectGroup.parent
-		
-		// Find all samples that reference this subjectgroup
-		def criteria = Sample.createCriteria()
-		def samples = criteria {
-			parentSubjectEventGroup {
-				eq( 'subjectGroup', subjectGroup )
-			}
-		}
-		
-		// Make sure we have a sample for each subject in combination with each samplingevent
-		subjectGroup.subjects?.each { subject ->
-			subjectGroup.subjectEventGroups?.each { subjectEventGroup ->
-				subjectEventGroup.eventGroup.samplingEventInstances?.each { samplingEventInstance ->
-					def currentSample = samples.find {
-						it.parentSubject.id == subject.id &&
-						it.parentEvent.id == samplingEventInstance.id
-					}
-					
-					// If the currentSample is found, remove it from the list to be removed
-					if( currentSample ) {
-						log.debug "Sample generation: Sample already exists: " + currentSample
-						samples -= currentSample
-					} else {
-						createSample( study, subject, samplingEventInstance, subjectEventGroup )
-						log.debug "Sample generation: Creating new sample for subject: " + subject + " / " + samplingEventInstance
+	protected Integer generateSamples( Study study, List subjectEventGroups ) {
+		def numChanged = 0
+		def samples = Sample.executeQuery("SELECT id, name FROM Sample WHERE parent = :study", [ study: study ])
+
+        def sampleIds
+        def sampleNames
+        if ( samples ) {
+            sampleIds = samples.collect() { it[0] }
+            sampleNames = samples.collect() { it[1] }
+        }
+
+		def sql = new Sql(dataSource)
+		sql.withBatch( 250, "INSERT INTO sample(id, version, name, parent_id, parent_event_id, parent_subject_id, template_id, parent_subject_event_group_id) VALUES (nextval('hibernate_sequence'), 0, :name, :study, :event, :subject, :template, :subjectEventGroup)" ) { preparedStatement ->
+			subjectEventGroups.each { SubjectEventGroup subjectEventGroup ->
+				subjectEventGroup.subjectGroup.subjects?.each { subject ->
+					subjectEventGroup.eventGroup.samplingEventInstances?.each { samplingEventInstance ->
+
+						def newSample = new Sample(
+								parent: subjectEventGroup.parent,
+								parentSubject: subject,
+								parentEvent: samplingEventInstance,
+								parentSubjectEventGroup: subjectEventGroup,
+								template: samplingEventInstance.event.sampleTemplate
+						)
+
+						newSample.name = newSample.generateName()
+
+						def sampleIndex = -1
+						if ( sampleNames ) {
+							sampleIndex = sampleNames.indexOf(newSample.name)
+						}
+
+						if ( sampleIndex == -1 ) {
+                            preparedStatement.addBatch( [ name: newSample.name, study: newSample.parent.id, event: newSample.parentEvent.id, subject: newSample.parentSubject.id, template: newSample.template.id, subjectEventGroup: newSample.parentSubjectEventGroup.id ] )
+                            numChanged++
+						}
+						else {
+                            def oldSample = Sample.read( sampleIds[sampleIndex] )
+
+                            if ( oldSample.template != newSample.template ) {
+                                oldSample.template = newSample.template
+                                oldSample.save()
+                                numChanged++
+                            }
+						}
 					}
 				}
 			}
 		}
-		
-		// Remove samples from subjects that have been removed
-		samples.each { sample ->
-			log.debug "Sample generation: Deleting sample: " + sample
-			study.deleteSample( sample )
-		}
+
+        return numChanged
 	}
-	
+
 	/**
-	 * Creates a new sample, based on the parent properties given
-	 * @param study
-	 * @param subject
-	 * @param samplingEventInstance
-	 * @param subjectEventGroup
-	 * @return	The newly created sample
+	 * Regenerate sampleNames for all samples in a study.
+	 * @param study the study
+	 * @return Number of updates
 	 */
-	protected boolean createSample( Study study, Subject subject, SamplingEventInEventGroup samplingEventInstance, SubjectEventGroup subjectEventGroup ) {
-		// Make sure we have a fresh subject instance. Otherwise, calling this method after altering the subjectgroup
-		// will raise Hibernate exceptions
-		subject.refresh()
-		
-		def currentSample = new Sample(
-			parent: study,
-			parentSubject: subject,
-			parentEvent: samplingEventInstance,
-			parentSubjectEventGroup: subjectEventGroup,
-			template: samplingEventInstance.event.sampleTemplate
-		);
-	
-		currentSample.generateName()
-		study.addToSamples( currentSample )
-		currentSample.save( flush: true );
-		
-		currentSample
+	protected Integer regenerateSampleNames( Study study ) {
+        def count = 0
+		def sql = new Sql(dataSource)
+
+		sql.withBatch( 250, "UPDATE sample SET name = :name WHERE id = :sampleId" ) { preparedStatement ->
+            study.samples.each() { Sample sample ->
+                preparedStatement.addBatch( [sampleId: sample.id, name: java.util.UUID.randomUUID().toString() ] )
+            }
+		}
+
+        def samples = []
+        sql.withBatch( 250, "UPDATE sample SET name = :name WHERE id = :sampleId" ) { preparedStatement ->
+            study.samples.each() { Sample sample ->
+
+                String generatedSampleName = sample.generateName()
+
+                if (samples.contains(generatedSampleName)) {
+                    def i = 1
+                    while (samples.contains(generatedSampleName + '_' + i.toString())) {
+                        i++
+                    }
+
+                    generatedSampleName = generatedSampleName + '_' + i.toString()
+                }
+
+                samples << generatedSampleName
+
+                preparedStatement.addBatch( [sampleId: sample.id, name: generatedSampleName ] )
+                count++
+            }
+        }
+
+		return count
 	}
-	
 }

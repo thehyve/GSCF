@@ -1,8 +1,7 @@
 <html xmlns="http://www.w3.org/1999/html">
 <head>
 	<meta name="layout" content="main"/>
-    <link rel="stylesheet" href="${resource(dir: 'css', file: 'tipTip.css')}"/>
-    <script type="text/javascript" src="${resource(dir: 'js', file: 'jquery.tipTip.minified.js')}"></script>
+	<r:require module="tiptip" />
     <style stype="text/css">
     description {
         display: block;
@@ -27,7 +26,7 @@
         color: #f54d80;
     }
     </style>
-    <script>
+    <r:script>
         $(document).ready(function() {
             $('li').each(function() {
                 if (this.hasAttribute('description')) {
@@ -35,7 +34,7 @@
                 }
             });
         });
-    </script>
+    </r:script>
 </head>
 <body>
 
@@ -53,7 +52,22 @@
 				<li>Domains: ${grailsApplication.domainClasses.size()}</li>
 				<li>Services: ${grailsApplication.serviceClasses.size()}</li>
 				<li>Tag Libraries: ${grailsApplication.tagLibClasses.size()}</li>
-			</ul>
+				<li>Environment: ${grails.util.Environment.current}</li>
+        <li>Startup date: <g:formatDate date="${grailsApplication.mainContext.getStartupDate()}" format="yyyy-MM-dd HH:mm:ss"/></li>
+      </ul>
+      <h1>Build Information</h1>
+      <ul>
+        <li>Commit: <g:meta name="scm.version"></g:meta></li>
+        <li>Date: <g:meta name="build.date"></g:meta></li>
+        <li>Timezone: <g:meta name="build.timezone"></g:meta></li>
+        <li>Java version: <g:meta name="build.java"></g:meta></li>
+        <li>OS name: <g:meta name="env.os.name"></g:meta></li>
+        <li>OS version: <g:meta name="env.os.version"></g:meta></li>
+        <li>Username: <g:meta name="env.username"></g:meta></li>
+        <li>Computer: <g:meta name="env.computer"></g:meta></li>
+        <li>Architecture: <g:meta name="env.proc.type"></g:meta></li>
+        <li>Cores: <g:meta name="env.proc.cores"></g:meta></li>
+      </ul>
 			<h1>Installed Plugins</h1>
 			<ul>
 				<g:set var="pluginManager"

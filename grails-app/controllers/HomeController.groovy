@@ -1,7 +1,7 @@
 import dbnp.studycapturing.*
 
 import org.codehaus.groovy.grails.commons.GrailsApplication
-import org.codehaus.groovy.grails.commons.ConfigurationHolder
+import grails.util.Holders
 import grails.converters.JSON
 import org.dbnp.gdt.Template
 
@@ -36,7 +36,7 @@ class HomeController {
 		}
 
 		// create sql instance for advanced queries
-		def config = ConfigurationHolder.config
+		def config = Holders.config
 		def sql = new groovy.sql.Sql(dataSource)
 		def db  = config.dataSource.driverClassName
 
@@ -65,7 +65,6 @@ class HomeController {
 
 			// combine daily statistics
 			dailyStatistics = [:]
-			long oneDay		= (1 * 24 * 60 * 60 * 1000)
 			startDate 		= (usersPerDay[0].day <= studiesPerDay[0].day) ? usersPerDay[0].day : studiesPerDay[0].day
 			startDate		= (templatesPerDay[0].day != null && templatesPerDay[0].day < startDate) ? templatesPerDay[0].day : startDate
 			endDate 		= (usersPerDay[usersPerDay.size()-1].day >= studiesPerDay[studiesPerDay.size()-1].day) ? usersPerDay[usersPerDay.size()-1].day : studiesPerDay[studiesPerDay.size()-1].day
@@ -95,7 +94,10 @@ class HomeController {
 					templates		: templates,
 					templateTotal	: templateTotal
 				]
-				date.setTime(date.getTime() + oneDay)
+
+                use ( groovy.time.TimeCategory ) {
+                    date = date + 1.day
+                }
 			}
 		}
 	
@@ -188,7 +190,7 @@ class HomeController {
 	 * Log the user in as admin and jump to the setup wizard
 	 */
 	def setup = {
-		def config	= ConfigurationHolder.config
+		def config	= Holders.config
 		def db		= config.dataSource.driverClassName
 		def user	= authenticationService.getLoggedInUser()
 

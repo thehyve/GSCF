@@ -17,12 +17,16 @@ import org.codehaus.groovy.grails.commons.GrailsApplication
 import grails.util.GrailsUtil
 import dbnp.rest.common.CommunicationManager
 import org.codehaus.groovy.grails.commons.*
-
+import grails.util.Holders
 
 class ExampleStudies {
     public static void addTestData() {
         // get configuration
-        def config = ConfigurationHolder.config
+        def config = Holders.config
+
+		String url = config.grails.serverURL.replace('https://','').replace('http://','')
+
+		url = url.split('/').size() > 1 ? url.split('/')[1..-1].join('/') : ''
 
         // Look up the used ontologies which should be in the database by now
 		def speciesOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCBITAXON")
@@ -40,25 +44,25 @@ class ExampleStudies {
 
 		// Add SAM assay reference
 		def clinicalModule = new AssayModule(
-			name: 'SAM module for clinical data',
-			url: config.modules.sam.url.toString(),
-            baseUrl: config.modules.sam.baseurl.toString(),
+			name: 'ClinicalChem',
+			url: "${url}/measurements/ClinicalChem".toString(),
+            baseUrl: "${config.grails.serverURL}/measurements/ClinicalChem".toString(),
 			notify: true,
 			openInFrame: false
 		).save(failOnError:true)
 
 		// Add metabolomics assay reference
 		def metabolomicsModule = new AssayModule(
-			name: 'Metabolomics module',
-			url: config.modules.metabolomics.url.toString(),
-            baseUrl: config.modules.sam.url.toString()
+			name: 'Metabolomics',
+			url: "${url}/measurements/Metabolomics".toString(),
+            baseUrl: "${config.grails.serverURL}/measurements/Metabolomics".toString()
 		).save(failOnError:true)
 
 		// Add metabolomics assay reference
 		def massSequencingModule = new AssayModule(
-			name: 'Mass Sequencing module',
-			url: config.modules.massSequencing.url.toString(),
-            baseUrl: config.modules.sam.url.toString()
+			name: 'Mass_Sequencing',
+			url: "${url}/measurements/Mass_Sequencing".toString(),
+            baseUrl: "${config.grails.serverURL}/measurements/Mass_Sequencing".toString()
 		).save(failOnError:true)
 	}
 
@@ -70,7 +74,7 @@ class ExampleStudies {
 		if (String.metaClass.getMetaMethod("grom")) "inserting initial studies".grom()
 
 		// get configuration
-		def config = ConfigurationHolder.config
+		def config =  Holders.config
 
 		// Look up the used ontologies which should be in the database by now
         def speciesOntology				= Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCBITAXON")

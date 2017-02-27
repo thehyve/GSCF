@@ -15,13 +15,13 @@
 package dbnp.authentication
 
 import grails.converters.JSON
-import grails.plugins.springsecurity.Secured
+import grails.plugin.springsecurity.annotation.Secured
+import dbnp.studycapturing.Study
 import org.springframework.dao.DataIntegrityViolationException
 
 /**
  * @author <a href='mailto:burt@burtbeckwith.com'>Burt Beckwith</a>
  */
-@Secured(['ROLE_ADMIN'])
 class UserController {
 
 	def userCache
@@ -70,6 +70,22 @@ class UserController {
 		if (!versionCheck('user.label', 'User', user, [user: user])) {
 			return
 		}
+        
+                // Handle relation with user groups
+                def selectedUserGroups = user.getUserGroups()
+                for(selectedUserGroup in selectedUserGroups){
+                        def studies = Study.all.findAll{it.readerGroups.id.contains(selectedUserGroup.id)}
+                        for (studyU in studies){
+                                studyU.removeFromReaders(user)
+                                studyU.save(flush: true) 
+                        }
+                        studies = Study.all.findAll{it.writerGroups.id.contains(selectedUserGroup.id)}
+                        for (studyU in studies){
+                                studyU.removeFromWriters(user)
+                                studyU.save(flush: true) 
+                        }
+                        SecUserSecUserGroup.remove(user,selectedUserGroup, true)
+                }
 		
 		def oldPassword = user.password
 		user.properties = params
@@ -84,7 +100,28 @@ class UserController {
 
 		SecUserSecRole.removeAll user
 		addRoles user
-		
+               
+                if(params.optionalGroups){                  
+                    def userGroups = params.list('optionalGroups')
+                    for(userGroup in userGroups){
+                        SecUserGroup singleGroup = SecUserGroup.get(userGroup)
+                        
+                        def studies = Study.all.findAll{it.readerGroups.contains(singleGroup)}
+                        for (studyU in studies){
+                                studyU.addToReaders(user)
+                                studyU.save(flush: true) 
+                        }
+                        studies = Study.all.findAll{it.writerGroups.contains(singleGroup)}
+                        for (studyU in studies){
+                                studyU.addToWriters(user)
+                                studyU.save(flush: true) 
+                        }
+                                
+                        SecUserSecUserGroup sec = new SecUserSecUserGroup(secUser:user, secUserGroup: singleGroup)
+                        sec.save(flush: true)
+                    }
+                }
+        
 		userCache.removeUserFromCache user.username
 
 		flash.message = "${message(code: 'default.updated.message', args: [message(code: 'user.label', default: 'User'), user.id])}"
@@ -97,6 +134,7 @@ class UserController {
 
 		try {
 			SecUserSecRole.removeAll user
+                        SecUserSecUserGroup.removeAll user
 			user.delete flush: true
 
 			userCache.removeUserFromCache user.username
@@ -126,16 +164,18 @@ class UserController {
 		for (name in ['username']) {
 			if (params[name]) {
 				hql.append " AND LOWER(u.$name) LIKE :$name"
-				queryParams[name] = params[name].toLowerCase() + '%'
+				queryParams[name] = "%${params[name].toLowerCase()}%"
 			}
 		}
 
 		for (name in ['enabled', 'accountExpired', 'accountLocked', 'passwordExpired']) {
-            def value = params.name as Integer
-			if (value) {
-				hql.append " AND u.$name=:$name"
-				queryParams[name] = value == 1
-			}
+			if (params[name]) { // check if a value is specified at all
+				def value = params[name] as Integer
+				if (value) { // 0 indicates either option, so don't filter in that case
+					hql.append " AND u.$name=:$name"
+					queryParams[name] = value == 1 // value can be 1 or -1
+				}
+            }
 		}
 
 		int totalCount = SecUser.executeQuery("SELECT COUNT(DISTINCT u) $hql", queryParams)[0]
@@ -143,10 +183,7 @@ class UserController {
 	    def max = params.max as Integer
 		def offset = params.offset as Integer
 
-		String orderBy = ''
-		if (params.sort) {
-			orderBy = " ORDER BY u.$params.sort ${params.order ?: 'ASC'}"
-		}
+		def orderBy = " ORDER BY u.${params.sort ?: 'username'} ${params.order ?: 'ASC'}"
 
 		def results = SecUser.executeQuery(
 				"SELECT DISTINCT u $hql $orderBy",
@@ -154,9 +191,17 @@ class UserController {
 		def model = [results: results, totalCount: totalCount, searched: true]
 
 		// add query params to model for paging
-		for (name in ['username', 'enabled', 'accountExpired', 'accountLocked',
-		              'passwordExpired', 'sort', 'order']) {
-		 	model[name] = params[name]
+		def defaultParams = [
+				username: '',
+				enabled: 0,
+				accountExpired: 0,
+				accountLocked: 0,
+				passwordExpired: 0,
+				sort: null,
+				order: null
+		]
+		defaultParams.each{ key, defaultValue ->
+			model[key] = params[key] ?: defaultValue
 		}
 
 		render view: 'search', model: model
@@ -172,15 +217,15 @@ class UserController {
 		if (params.term?.length() > 2) {
 			String username = params.term
 
-			setIfMissing 'max', 10, 100
+                        def max = Math.min( params.max ?: 10, 100 )
 
 			def results = SecUser.executeQuery(
 					"SELECT DISTINCT u.username " +
 					"FROM SecUser u " +
 					"WHERE LOWER(u.username) LIKE :name " +
 					"ORDER BY u.username",
-					[name: "${username.toLowerCase()}%"],
-					[max: params.max])
+					[name: username.toLowerCase() + "%"],
+					[max: max])
 
 			for (result in results) {
 				jsonData << [value: result]
@@ -212,8 +257,12 @@ class UserController {
 				notGranted[(role)] = userRoleNames.contains(role.authority)
 			}
 		}
+                
+                def groups = SecUserGroup.all.sort { it.groupName }
+                def selectedGroups = user.getUserGroups()
+                
 
-		return [user: user, roleMap: granted + notGranted]
+		return [user: user, roleMap: granted + notGranted, groups:groups, selectedGroups:selectedGroups]
 	}
 
 	protected findById() {

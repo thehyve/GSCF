@@ -4,11 +4,18 @@
   <head>
 	<meta name="layout" content="main"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-	<link rel="stylesheet" href="${resource(dir: 'css', file: 'templateImporter.css')}" />
+    <r:require module="templateImporter" />
     <title>Select templates to import</title>
   </head>
   <body>
     <h1>Select templates to import</h1>
+    
+	<span class="message info"> 
+		For unticked templates similar templates already exist in the database. Please check whether these alternatives would suit your study. 
+		If you still want to import your template, tick the box for that template.	
+	</span>
+    
+    
 	<g:if test="${templates?.size() > 0}">
 	  <form method="post" action="<g:createLink action="saveImportedTemplates" />">
 		<table id="importTemplates">
@@ -18,14 +25,23 @@
 			</tr>
 		  </thead>
 		  <g:each in="${templates}" var="templateData" status="i">
-			<tr class="${ i % 2 == 0 ? 'even' : 'odd'}">
+			<tr class="${ i % 2 == 0 ? 'even' : 'odd'} ${templateData.requireNameChange ? 'requireNameChange' : ''}">
 			  <g:if test="${!templateData.error}">
 				<td><input type="checkbox" name="selectedTemplate" <g:if test="${templateData.alternatives == null || templateData.alternatives.size() == 0}">checked="checked"</g:if> value="${templateData.key}" /></td>
 				<td>
-				  <h3>${templateData.template.name} <a href="#" onClick="$(this).parent().hide(); $('.otherTemplateName', $(this).parent().parent()).show()">(change)</a></h3>
-				  <span class="otherTemplateName"><g:textField name="templateNames_${templateData.key}" value="${templateData.template.name}" /></span>
+				  <h3>${templateData.template.name} <a href="#" class="changeName">(change)</a></h3>
+				  <div class="otherTemplateName">
+				  	<g:textField name="templateNames_${templateData.key}" value="${templateData.template.name}" maxLength="255" />
+				  </div>
+		  		  <p class="nameAlreadyInUse error">A template with this name already exists. Please choose another name.</p>
 				  <p>${templateData.template.entity?.getName()}</p>
 				  <p>${templateData.template.description}</p>
+				  
+				  <ul class="existingNames">
+				  	<g:each in="${templateData.existingNames}" var="name">
+				  		<li>${name}</li>
+				  	</g:each>
+				  </ul>
 				</td>
 				<td>
 				  <g:if test="${templateData.template.fields?.size() > 0}">

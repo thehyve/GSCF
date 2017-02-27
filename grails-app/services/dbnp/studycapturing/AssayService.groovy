@@ -15,9 +15,10 @@ package dbnp.studycapturing
 import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
+import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.codehaus.groovy.grails.web.json.JSONObject
 import org.dbnp.gdt.RelTime
-import org.dbnp.gdt.TemplateFieldType
+import org.dbnp.gdt.*
 import java.text.NumberFormat
 import dbnp.authentication.SecUser
 
@@ -48,36 +49,105 @@ class AssayService {
      * @return a map of categories as keys and field names or measurements as
      *  values
      */
-    def collectAssayTemplateFields(assay, samples, SecUser remoteUser = null) throws Exception {
+    def collectAssayTemplateFields(assay, ids, SecUser remoteUser = null) throws Exception {
 
-        def moduleError = '', moduleMeasurements = []
+        def moduleError = '', moduleMeasurements = [], features = []
 
         try {
-            moduleMeasurements = requestModuleMeasurementNames(assay, remoteUser)
+            def featureData = requestModuleMeasurementMetadata(assay, remoteUser)
+            moduleMeasurements = featureData.collect { it.name }
+            features = featureData
         } catch (e) {
             moduleError = e.message
         }
 
-        if (!samples)
-            samples = assay.samples
-
-        [       'Study Data': getUsedTemplateFields(samples.parent),
-                'Subject Data': getUsedTemplateFields(samples*."parentSubject".unique()),
-                'Sampling Event Data': (getUsedTemplateFields(samples*.parentEvent.unique()) << getUsedTemplateFields(samples*.parentEvent*.event.unique())).flatten(),
-                'Sample Data': getUsedTemplateFields(samples),
-                'Event Group': [
-                        [name: 'name', comment: 'Name of Event Group', displayName: 'name']
-                ],
-                'Module Measurement Data': moduleMeasurements,
-                'Module Error': moduleError
+        [   'Study Data': getAllTemplateFields( Study, ids.study ),
+            'Subject Data': getAllTemplateFields( Subject, ids.subject ),
+            'Sampling Event Data': getAllTemplateFields( SamplingEvent, ids.samplingEvent ),
+            'Sample Data': getAllTemplateFields(Sample, ids.sample),
+            'Event Group': [
+                [name: 'name', comment: 'Name of Event Group', displayName: 'name']
+            ],
+            'Features': features,
+            'Module Measurement Data': moduleMeasurements,
+            'Module Error': moduleError
         ]
-
+    }
+    
+    def getAssociatedIds(assay, samples) {
+        // Retrieve parent subjects and events.
+        def subjectIds = []
+        def samplingEventInstanceIds = []
+        samples.collate(2500).each { batch ->
+            if( batch ) {
+                def data = Sample.executeQuery( "SELECT s.parentSubject.id, s.parentEvent.id FROM Sample s WHERE id IN (:ids)", [ ids: batch*.id ] )
+                subjectIds += data.collect { it[0] }
+                samplingEventInstanceIds += data.collect { it[1] }
+            }
+        }
+        
+        def eventIds = []
+        if( samplingEventInstanceIds ) {
+            samplingEventInstanceIds = samplingEventInstanceIds.unique()
+            eventIds = SamplingEventInEventGroup.executeQuery( "SELECT event.id FROM SamplingEventInEventGroup WHERE id IN (:ids)", [ ids: samplingEventInstanceIds ] )
+        }
+        
+        [ 
+            study: [ assay.parentId ],
+            subject: subjectIds,
+            samplingEvent: eventIds,
+            sample: samples*.id
+        ]
     }
 
+
+    /**
+     * Merges multiple fieldmaps as returned from assayService.collectAssayTemplateFields(). For each category,
+     * a list is returned without duplicates
+     * @param fieldMaps             ArrayList of fieldMaps
+     * @return                              A single fieldmap
+     */
+    def mergeFieldMaps( fieldMaps ) {
+        if( !fieldMaps || !( fieldMaps instanceof Collection ) )
+            throw new Exception( "No or invalid fieldmaps given" )
+
+        if( fieldMaps.size() == 1 )
+            return fieldMaps[ 0 ]
+
+        // Loop over each fieldmap and combine the fields from different categories
+        def mergedMap = fieldMaps[ 0 ]
+        fieldMaps[1..-1].each { fieldMap ->
+            fieldMap.each { key, value ->
+                if( value instanceof Collection ) {
+                    if( mergedMap.containsKey( key ) ) {
+                        value.each {
+                            if( !mergedMap[ key ].contains( it ) )
+                                mergedMap[ key ] << it
+                        }
+                    } else {
+                        mergedMap[ key ] = value
+                    }
+                } else {
+                    if( mergedMap.containsKey( key ) ) {
+                        if( !mergedMap[ key ].contains( value ) )
+                            mergedMap[ key ] << value
+                    } else {
+                        mergedMap[ key ] = [ value ]
+                    }
+                }
+            }
+        }
+
+        mergedMap
+    }
+
+    /**
+     * Returns a list of template fields that actually contain data.
+     */
     def getUsedTemplateFields = { templateEntities ->
         if (templateEntities instanceof ArrayList && templateEntities.size() > 0 && templateEntities[0] instanceof SamplingEventInEventGroup) {
             return [[name: 'startTime', comment: '', displayName: 'startTime'],
-                    [name: 'duration', comment: '', displayName: 'duration']]
+                [name: 'duration', comment: '', displayName: 'duration']]
         }
 
         // gather all unique and non null template fields that haves values
@@ -87,6 +157,41 @@ class AssayService {
 
         }.collect { [name: it.name, comment: it.comment, displayName: it.name + (it.unit ? " ($it.unit)" : '')] }
     }
+
+    /**
+     * Returns a list of template fields that have been specified for the given set of entities
+     */
+    def getAllTemplateFields = { entity, ids ->
+        // Special case of sample event instances
+        if( entity == SamplingEventInEventGroup ) {
+            return [[name: 'startTime', comment: '', displayName: 'startTime'],
+                [name: 'duration', comment: '', displayName: 'duration']]
+        }
+                
+        // Determine the type of data
+        def domainFields = entity.domainFields
+
+        // Determine template IDs
+        def templateIds = []
+        ids.collate(2500).each { idBatch -> 
+            if( idBatch ) {
+                templateIds += entity.executeQuery( "SELECT DISTINCT e.template.id FROM " + entity.simpleName + " e WHERE e.id IN (:ids)", [ ids: idBatch ] )
+            }
+        }
+        
+        def templateFields = []
+        if( templateIds ) {
+            
+            // Determine the template for all templateEntities
+            def templates = Template.getAll(templateIds)
+            
+            templateFields = templates*.fields.flatten().findAll().unique()
+        }
+        
+        // Return the proper list
+        ( domainFields + templateFields ).collect { [name: it.name, comment: it.comment, displayName: it.name + (it.unit ? " ($it.unit)" : '')] }
+    }
+
 
     /**
      * Gathers all assay related data, including measurements from the module,
@@ -104,7 +209,7 @@ class AssayService {
      * 								null to include all samples.
      * @return The assay data structure as described above.
      */
-    def collectAssayData(assay, fieldMap, measurementTokens, samples, SecUser remoteUser = null) throws Exception {
+    def collectAssayData(assay, fieldMap, samples, ids, SecUser remoteUser = null) throws Exception {
         // Find samples and sort by name
         if (!samples) samples = assay.samples.toList()
 
@@ -113,152 +218,111 @@ class AssayService {
         // check whether event group data was requested
         if (fieldMap['Event Group']) {
 
-            def names = samples*.parentEvent*.event.name.flatten()
+            def names = samples*.parentEvent*.event*.name
 
             // only set name field when there's actual data
             if (!names.every { !it }) eventFieldMap['name'] = names
-
-        }
-
-        def moduleError = '', moduleMeasurementData = [:], moduleMeasurementMetaData = [:]
-
-        if (measurementTokens) {
-
-            try {
-                moduleMeasurementData = requestModuleMeasurements(assay, measurementTokens, samples, remoteUser)
-            } catch (e) {
-                moduleMeasurementData = ['error': [
-                        'Module error, module not available or unknown assay']
-                        * samples.size()]
-                e.printStackTrace()
-                moduleError = e.message
-            }
         }
 
         [
-                'Subject Data': getFieldValues(samples, fieldMap['Subject Data'], 'parentSubject'),
-                'Sampling Event Data': getFieldValues(samples, fieldMap['Sampling Event Data'], 'parentEvent'),
-                'Sample Data': getFieldValues(samples, fieldMap['Sample Data']),
-                'Event Group': eventFieldMap,
-					('Module Measurement Data: ' + assay.name ): 		moduleMeasurementData,
-                'Module Error': moduleError
+            'Subject Data': getFieldValues(samples, fieldMap['Subject Data'], { sample -> sample.parentSubjectId }, Subject, ids.subject),
+            'Sampling Event Data': getFieldValues(samples, fieldMap['Sampling Event Data'], { sample -> sample.parentEventId }, SamplingEvent, ids.samplingEvent),
+            'Sample Data': getFieldValues(samples, fieldMap['Sample Data'], { sample -> sample.id }, Sample, ids.sample),
+            'Event Group': eventFieldMap,
+            'Features': fieldMap['Features']
         ]
     }
 
-    def getFieldValues = { templateEntities, headerFields, propertyName = '' ->
-
+    def getFieldValues = { templateEntities, headerFields, getIdFromEntity, entity, ids ->
         def returnValue
 
         // if no property name is given, simply collect the fields and
         // values of the template entities themselves
-        if (propertyName == '') {
+        def data = collectFieldValuesForTemplateEntities(headerFields, entity, ids)
 
-            returnValue = collectFieldValuesForTemplateEntities(headerFields, templateEntities)
-
-        } else {
-
-            // if a property name is given, we'll have to do a bit more work
-            // to ensure efficiency. The reason for this is that for a list
-            // of template entities, the properties referred to by
-            // propertyName can include duplicates. For example, for 10
-            // samples, there may be less than 10 parent subjects. Maybe
-            // there's only 1 parent subject. We don't want to collect field
-            // values for this single subject 10 times ...
-            def fieldValues
-            def staticFieldValues
-            def uniqueProperties
-
-            // we'll get the unique list of properties to make sure we're
-            // not getting the field values for identical template entity
-            // properties more then once.
-            if (propertyName.equals('parentEvent')) {
-                uniqueProperties = templateEntities*.parentEvent*.event.unique()
-                staticFieldValues = collectStaticFieldValuesForTemplateEntities(headerFields, templateEntities*.parentEvent.unique())
-            } else {
-                uniqueProperties = templateEntities*."$propertyName".unique()
+        // Make sure each field is shown on the correct line
+        def returnData = [:]
+        data.each { columnName, columnData ->
+            def columnStructure = templateEntities.collect { templateEntity ->
+                def id = getIdFromEntity(templateEntity)
+                if( id )
+                    columnData[ id ]
+                else
+                    null
             }
-
-            fieldValues = collectFieldValuesForTemplateEntities(headerFields, uniqueProperties)
-
-            // prepare a lookup hashMap to be able to map an entities'
-            // property (e.g. a sample's parent subject) to an index value
-            // from the field values list
-            int i = 0
-            def propertyToFieldValueIndexMap = uniqueProperties.inject([:]) { map, item -> map + [(item): i++] }
-
-            // prepare the return value so that it has an entry for field
-            // name. This will be the column name (second header line).
-            returnValue = headerFields*.displayName.inject([:]) { map, item -> map + [(item): []] }
-
-            // finally, fill map the unique field values to the (possibly
-            // not unique) template entity properties. In our example with
-            // 1 unique parent subject, this means copying that subject's
-            // field values to all 10 samples.
-            templateEntities.each { te ->
-
-                headerFields*.displayName.each {
-                    if (propertyName.equals('parentEvent')) {
-                        if (it.equals('startTime') || it.equals('duration')) {
-                            returnValue[it] << staticFieldValues[it][te.parentEvent.id]
-                        } else {
-                            returnValue[it] << fieldValues[it][propertyToFieldValueIndexMap[te.parentEvent['event']]]
-                        }
-                    } else {
-                        returnValue[it] << fieldValues[it][propertyToFieldValueIndexMap[te[propertyName]]]
-                    }
-                }
-            }
+            returnData[columnName] = columnStructure
         }
-        returnValue
+        
+        returnData
     }
 
 
     def collectStaticFieldValuesForTemplateEntities = { headerFields, templateEntities ->
         headerFields.inject([:]) { map, headerField ->
             map + [(headerField.displayName): templateEntities.collectEntries { entity ->
-                def returnVal = ''
-                switch (headerField.displayName) {
-                    case 'startTime':
-                        returnVal = entity.startTime
-                        break
-                    case 'duration':
-                        returnVal = entity.duration
-                        break
-                    default:
-                        break
-                }
-                [(entity.id): returnVal]
-            }]
+                    def returnVal = ''
+                    switch (headerField.displayName) {
+                        case 'startTime':
+                            returnVal = entity.startTime
+                            break
+                        case 'duration':
+                            returnVal = entity.duration
+                            break
+                        default:
+                            break
+                    }
+                    [(entity.id): returnVal]
+                }]
         }
     }
 
-    def collectFieldValuesForTemplateEntities = { headerFields, templateEntities ->
-
+    def collectFieldValuesForTemplateEntities = { headerFields, entity, ids ->
+        def firstNonEmptyTemplateEntity = entity.newInstance()
+        
         // return a hash map with for each field name all values from the
         // template entity list
-        headerFields.inject([:]) { map, headerField ->
+        headerFields.collectEntries { headerField ->
+            // Retrieve data for all templateEntities for the given field
+            def data
 
-            map + [(headerField.displayName): templateEntities.collect { entity ->
-
-                // default to an empty string
-                def val = ''
-
-                if (entity) {
-                    def field
-                    try {
-
-                        val = entity.getFieldValue(headerField.name)
-
-                        // Convert RelTime fields to human readable strings
-                        field = entity.getField(headerField.name)
-                        if (field.type == TemplateFieldType.RELTIME)
-                            val = new RelTime(val as long)
-
-                    } catch (NoSuchFieldException e) { /* pass */ }
+            // The data for domainfields has been retrieved already
+            def field
+            if( firstNonEmptyTemplateEntity.isDomainField(headerField.name) ) {
+                field = firstNonEmptyTemplateEntity.getField(headerField.name)
+            } else {
+                // Filtering on class doesn't seem to work properly
+                field = TemplateField.findAllByName(headerField.name).find { it.entity == entity }
+            }
+            
+            // Retrieve data
+            if( !field ) {
+                data = ids.collect { "" }
+            } else {
+                // Retrieve the data from the database at once
+                data = firstNonEmptyTemplateEntity.getColumnForEntities( ids, field ).collect { val ->
+                    // Convert RelTime fields to human readable strings
+                    if (field.type == TemplateFieldType.RELTIME && val != null)
+                        val = new RelTime(val as long)
+                    else
+                        val
                 }
+                
+                // Convert data into the proper format
+                data = data.collect {
+                    if( it == null )
+                        return ""
+                    else if( it instanceof Number )
+                        return it
+                    else
+                        return it.toString()
+                }
+            }
 
-                (val instanceof Number) ? val : val.toString()
-            }]
+            // Create a map with the ids being the keys
+            def dataMap = [ ids, data ].transpose().flatten().toSpreadMap() 
+            
+            // Return data for the big data map
+            [(headerField.displayName): dataMap ]
         }
     }
 
@@ -282,7 +346,7 @@ class AssayService {
         }
 
         return [
-                'Study Data': studyData
+            'Study Data': studyData
         ] + inputData
     }
 
@@ -306,7 +370,7 @@ class AssayService {
         }
 
         return [
-                'Assay Data': assayData
+            'Assay Data': assayData
         ] + inputData
     }
 
@@ -328,9 +392,10 @@ class AssayService {
         try {
             jsonArray = moduleCommunicationService.callModuleMethod(moduleUrl, path, query, "POST", remoteUser)
         } catch (e) {
+            log.error "Exception while trying to get the measurement tokens form the $assay.module.name", e
             throw new Exception("An error occured while trying to get the measurement tokens from the $assay.module.name. \
              This means the module containing the measurement data is not available right now. Please try again \
-             later or notify the system administrator if the problem persists. URL: $path?$query.")
+             later or notify the system administrator if the problem persists. URL: $path?$query.", e)
         }
 
         def result = jsonArray.collect {
@@ -342,90 +407,32 @@ class AssayService {
 
         return result
     }
-
+    
     /**
-     * Retrieves module measurement data through a rest call to the module
+     * Retrieves measurement metadata from the module through a rest call
      *
-     * @param assay Assay for which the module measurements should be retrieved
-     * @param measurementTokens List with the names of the fields to be retrieved. Format: [ 'measurementName1', 'measurementName2' ]
-     * @param samples Samples to collect measurements for
+     * @param consumer the url of the module
+     * @param path path of the rest call to the module
      * @return
      */
-    def requestModuleMeasurements(assay, List inputMeasurementTokens, List samples, SecUser remoteUser = null) {
+    def requestModuleMeasurementMetadata(assay, SecUser remoteUser = null) {
 
         def moduleUrl = assay.module.baseUrl
 
-        def tokenString = ''
-
-        inputMeasurementTokens.each { tokenString += "&measurementToken=${it.encodeAsURL()}" }
-
-        /* Contact module to fetch measurement data */
-        def path = moduleUrl + "/rest/getMeasurementData/query"
-        def query = "assayToken=$assay.UUID$tokenString"
-
-        if (samples) {
-            query += '&' + samples*.UUID.collect { "sampleToken=$it" }.join('&')
-        }
-
-        def sampleTokens = [], measurementTokens = [], moduleData = []
+        def path = moduleUrl + "/rest/getMeasurementMetaData"
+        def query = "assayToken=${assay.UUID}"
+        def jsonArray
 
         try {
-            (sampleTokens, measurementTokens, moduleData) = moduleCommunicationService.callModuleMethod(moduleUrl, path, query, "POST", remoteUser)
+            jsonArray = moduleCommunicationService.callModuleMethod(moduleUrl, path, query, "POST", remoteUser)
         } catch (e) {
-            e.printStackTrace()
-            throw new Exception("An error occured while trying to get the measurement data from the $assay.module.name. \
+            log.error "Exception while trying to get the measurement tokens form the $assay.module.name", e
+            throw new Exception("An error occured while trying to get the measurement tokens from the $assay.module.name. \
              This means the module containing the measurement data is not available right now. Please try again \
-             later or notify the system administrator if the problem persists. URL: $path?$query.")
+             later or notify the system administrator if the problem persists. URL: $path?$query.", e)
         }
 
-        if (!sampleTokens?.size()) return []
-
-        // Convert the three different maps into a map like:
-        //
-        // [ "measurement 1": [ value1, value2, value3 ],
-        //   "measurement 2": [ value4, value5, value6 ] ]
-        //
-        // The returned values should be in the same order as the given samples-list
-        def map = [:]
-        def numSampleTokens = sampleTokens.size();
-
-        measurementTokens.eachWithIndex { measurementToken, measurementIndex ->
-            def measurements = [];
-
-            samples.each { sample ->
-
-                // Do measurements for this sample exist? If not, a null value is returned
-                // for this sample. Otherwise, the measurement is looked up in the list with
-                // measurements, based on the sample token
-                if (sampleTokens.collect { it.toString() }.contains(sample.UUID)) {
-                    def tokenIndex = sampleTokens.indexOf(sample.UUID);
-                    def valueIndex = measurementIndex * numSampleTokens + tokenIndex;
-
-                    // If the module data is in the wrong format, show an error in the log file
-                    // and return a null value for this measurement.
-                    if (valueIndex >= moduleData.size()) {
-                        log.error "Module measurements given by module " + assay.module.name + " are not in the right format: " + measurementTokens?.size() + " measurements, " + sampleTokens?.size() + " samples, " + moduleData?.size() + " values"
-                        measurements << null
-                    } else {
-
-                        def val
-                        def measurement = moduleData[valueIndex]
-
-                        if (measurement == JSONObject.NULL) val = ""
-                        else if (measurement instanceof Number) val = measurement
-                        else if (measurement.isDouble()) val = measurement.toDouble()
-                        else val = measurement.toString()
-                        measurements << val
-
-                    }
-                } else {
-                    measurements << null
-                }
-            }
-            map[measurementToken.toString()] = measurements
-        }
-
-        return map;
+        return jsonArray
     }
 
     /**
@@ -617,7 +624,7 @@ class AssayService {
             def categoryData = columnWiseAssayData*.getAt(category);
 
             // Find the different fields in all assays
-            def categoryFields = categoryData.findAll { it }*.keySet().toList().flatten().unique();
+            def categoryFields = categoryData.findAll({it instanceof Map})*.keySet().flatten().unique();
 
             // Find data for all assays for these fields. If the fields do not exist, return an empty string
             def categoryValues = [:]
@@ -780,17 +787,16 @@ class AssayService {
         if (columnData.every { it.value.every { it.value instanceof ArrayList } }) {
 
             def headers = [[], []]
-
-            columnData.each { category ->
-
-                if (category.value.size()) {
+            
+            columnData.each { category, categoryValues ->
+                if (categoryValues) {
 
                     // put category keys into first row separated by null values
                     // wherever there are > 1 columns per category
-                    headers[0] += [category.key] + [null] * (category.value.size() - 1)
+                    headers[0] += [category] + [null] * (categoryValues.size() - 1)
 
                     // put non-category column headers into 2nd row
-                    headers[1] += category.value.collect { it.key }
+                    headers[1] += categoryValues.collect { it.key }
 
                 }
 
@@ -803,8 +809,77 @@ class AssayService {
 
             // transpose d into row wise data and combine with header rows
             headers + d.transpose()
-        } else []
+        } else {
+            log.error "Invalid structure of exported data"
+            return []
+        }
 
+    }
+    
+    /**
+     * Adds feature metadata to the existing row structure.
+     * @param Map Existing data structured in rows. The method convertColumnToRowStructure can be used to convert data in this way
+     * @param List Metadata about the features used. Each entry is a map with all feature metadata
+     * 
+     * The input can be as follows
+     *  
+     * | Category1  |           | Module data |           |           |
+     * | Column1    | Column2   | FeatureA    | FeatureB  | FeatureC  |
+     * | 1          | 4         | 7           | 10        | 13        |
+     * | 2          | 5         | 8           | 11        | 14        |
+     * | 3          | 6         | 9           | 12        | 15        |
+     * 
+     * [ [ name: FeatureA, unit: ml, language: NL ],
+     *   [ name: FeatureB, unit: ml, author: Noone ] ] 
+     *
+     * The output will be
+     * 
+     * | Category1  |           |          | Module data |           |           |
+     * |            |           | unit     | ml          |           | ml        |
+     * |            |           | language | NL          |           |           |
+     * |            |           | author   |             |           | Noone     |
+     * | Column1    | Column2   |          | FeatureA    | FeatureB  | FeatureC  |
+     * | 1          | 4         |          | 7           | 10        | 13        |
+     * | 2          | 5         |          | 8           | 11        | 14        |
+     * | 3          | 6         |          | 9           | 12        | 15        |
+     * 
+     */
+    def addFeatureMetadata(existingData, featureMetadata) {
+        if( !featureMetadata || !existingData )
+            return existingData
+            
+        // Determine the set of distinct feature properties to add
+        // Name is not needed, as it is already added
+        def featureMap = featureMetadata.collectEntries { [ (it.name): it ] }
+        def featureProperties = featureMap.values()*.keySet().flatten().unique() - 'name'
+        
+        if( !featureProperties )
+            return existingData
+            
+        // Determine the first column where the module measurements start
+        def firstModuleColumn = existingData[0].findIndexOf { it && it.startsWith( "Module" ) }
+        if( firstModuleColumn == -1 )
+            return existingData
+            
+        // Determine the ordered list of feature names
+        def featureNames = existingData[1][firstModuleColumn..-1]
+         
+        // Inject a new column before the module measurements start
+        existingData.each { it.add( firstModuleColumn, "" ) }
+        
+        // Create new feature property rows
+        def featurePropertyRows = []
+        featureProperties.each { propertyName ->
+            // A row consists of some empty columns, the property name and the property values for each feature
+            def row = [""] * firstModuleColumn
+            row << propertyName
+            row += featureNames.collect { featureName -> featureMap[featureName][propertyName] ?: "" }
+            
+            featurePropertyRows << row
+        } 
+        
+        // Insert the newly created rows between the first and the second row
+        return [existingData[0]] + featurePropertyRows + existingData[1..-1]
     }
 
     /**
@@ -881,8 +956,8 @@ class AssayService {
                     addQuotes = true
                     s = s.replaceAll('"', '""')
                 } else {
-                    // enable surround with quotes in case of comma's
-                    if (s.contains(',') || s.contains('\n')) addQuotes = true
+                    // enable surround with quotes in case of comma's, newlines or semicolons
+                    if (s.contains(',') || s.contains('\n') || s.contains(';')) addQuotes = true
                 }
 
                 addQuotes ? "\"$s\"" : s
@@ -902,7 +977,7 @@ class AssayService {
      * @return
      */
     def exportRowWiseDataForMultipleAssaysToExcelFile(assayData, outputStream, useOfficeOpenXML = true) {
-        Workbook wb = useOfficeOpenXML ? new XSSFWorkbook() : new HSSFWorkbook()
+        Workbook wb = useOfficeOpenXML ? new SXSSFWorkbook(100) : new HSSFWorkbook()
 
         assayData.each { rowData ->
             Sheet sheet = wb.createSheet()
@@ -912,6 +987,8 @@ class AssayService {
 
         wb.write(outputStream)
         outputStream.close()
+        
+        wb.dispose()
     }
 
     /**
@@ -922,30 +999,29 @@ class AssayService {
      * @return
      */
     def exportRowWiseDataToExcelSheet(rowData, Sheet sheet) {
-        // create all rows
-        rowData.size().times { sheet.createRow it }
+        rowData.eachWithIndex { data, ri ->
+            Row row = sheet.createRow(ri)
+            
+            data.eachWithIndex { cellData, ci ->
+                Cell cell = row.createCell(ci)
+                
+                // Numbers and values of type boolean, String, and Date can be
+                // written as is, other types need converting to String
+                def value = rowData[ri][ci]
 
-        sheet.eachWithIndex { Row row, ri ->
-            if (rowData[ri]) {
-                // create appropriate number of cells for this row
-                rowData[ri].size().times { row.createCell it }
-
-                row.eachWithIndex { Cell cell, ci ->
-
-                    // Numbers and values of type boolean, String, and Date can be
-                    // written as is, other types need converting to String
-                    def value = rowData[ri][ci]
-
-                    value = (value instanceof Number | value?.class in [
-                            boolean.class,
-                            String.class,
-                            Date.class
-                    ]) ? value : value?.toString()
-
-                    // write the value (or an empty String if null) to the cell
-                    cell.setCellValue(value ?: '')
-
+                if( value == null ) {
+                    value = ""
+                } else if(value instanceof Number | value?.class in [
+                        boolean.class,
+                        String.class,
+                        Date.class
+                    ]) {
+                    value = value
+                } else {
+                    value = value.toString()
                 }
+                
+                cell.setCellValue(value)
             }
         }
     }

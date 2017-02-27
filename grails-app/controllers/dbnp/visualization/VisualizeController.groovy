@@ -80,6 +80,7 @@ class VisualizeController {
         def study = Study.get(studies)
 
         if (study != null) {
+            log.trace( "Start retrieving fields from GSCF")
             fields += getFields(study, "subjects", "domainfields")
             fields += getFields(study, "subjects", "templatefields")
             /*fields += getFields(study, "events", "domainfields")
@@ -95,16 +96,17 @@ class VisualizeController {
             fields += formatGSCFFields("domainfields", [name: "name"], "GSCF", "eventGroups");
 
             /*
-                        Gather fields related to this study from modules.
-                        This will use the getMeasurements RESTful service. That service returns measurement types, AKA features.
-                        It does not actually return measurements (the getMeasurementData call does).
-                        The getFields method (or rather, the getMeasurements service) requires one or more assays and will return all measurement
-                        types related to these assays.
-                        So, the required variables for such a call are:
-                          - a source variable, which can be obtained from AssayModule.list() (use the 'name' field)
-                          - an assay, which can be obtained with study.getAssays()
-                         */
+                Gather fields related to this study from modules.
+                This will use the getMeasurements RESTful service. That service returns measurement types, AKA features.
+                It does not actually return measurements (the getMeasurementData call does).
+                The getFields method (or rather, the getMeasurements service) requires one or more assays and will return all measurement
+                types related to these assays.
+                So, the required variables for such a call are:
+                  - a source variable, which can be obtained from AssayModule.list() (use the 'name' field)
+                  - an assay, which can be obtained with study.getAssays()
+                 */
             study.getAssays().each { assay ->
+                log.trace( "Retrieving fields from module for assay " + assay )
                 def list = []
                 if (!offlineModules.contains(assay.module.id)) {
                     list = getFields(assay.module.toString(), assay)
@@ -126,8 +128,7 @@ class VisualizeController {
             return returnError(404, "The requested study could not be found.")
         }
 
-        fields.unique() // Todo: find out root cause of why some fields occur more than once
-
+        log.trace( "Sort fields" )
         fields.sort { a, b ->
             def sourceEquality = a.source.toString().toLowerCase().compareTo(b.source.toString().toLowerCase())
             if (sourceEquality == 0) {
@@ -138,6 +139,7 @@ class VisualizeController {
             } else return sourceEquality
         }
 
+        log.trace "Return results to the user"
         return sendResults(['studyIds': studies, 'fields': fields])
     }
 
@@ -165,21 +167,20 @@ class VisualizeController {
 
         // TODO: handle the case of multiple fields on an axis
         // Determine data types
-        log.trace "Determining rowType: " + inputData.rowIds[0]
-        def rowType = determineFieldType(inputData.studyIds[0], inputData.rowIds[0])
-
-        log.trace "Determining columnType: " + inputData.columnIds[0]
-        def columnType = determineFieldType(inputData.studyIds[0], inputData.columnIds[0])
-
-        log.trace "Determining groupType: " + inputData.groupIds[0]
-        def groupType = determineFieldType(inputData.studyIds[0], inputData.groupIds[0])
+        // TODO: When multiple fields are to be retrieved from a module, retrieve them all at once
+        log.trace "Determining fieldTypes: " + inputData.rowIds[0] + " / " + inputData.columnIds[0] + " / " + inputData.groupIds[0]
+        def fieldTypes = determineFieldTypes(inputData.studyIds[0], [
+            'row': inputData.rowIds[0],
+            'column': inputData.columnIds[0],
+            'group': inputData.groupIds[0]
+        ])
 
         // Determine possible visualization- and aggregationtypes
-        def visualizationTypes = determineVisualizationTypes(rowType, columnType)
-        def aggregationTypes = determineAggregationTypes(rowType, columnType, groupType)
+        def visualizationTypes = determineVisualizationTypes(fieldTypes['row'], fieldTypes['column'])
+        def aggregationTypes = determineAggregationTypes(fieldTypes['row'], fieldTypes['column'], fieldTypes['group'])
 
-        log.trace "visualization types: " + visualizationTypes + ", determined this based on " + rowType + " and " + columnType
-        log.trace "aggregation   types: " + aggregationTypes + ", determined this based on " + rowType + " and " + columnType + " and " + groupType
+        log.trace "visualization types: " + visualizationTypes + ", determined this based on " + fieldTypes['row'] + " and " + fieldTypes['column']
+        log.trace "aggregation   types: " + aggregationTypes + ", determined this based on " + fieldTypes['row'] + " and " + fieldTypes['column'] + " and " + fieldTypes['group']
 
         def fieldData = ['x': parseFieldId(inputData.columnIds[0]), 'y': parseFieldId(inputData.rowIds[0])];
 
@@ -195,13 +196,13 @@ class VisualizeController {
                         'id': fieldData.x.fieldId,
                         'name': fieldData.x.name,
                         'unit': fieldData.x.unit,
-                        'type': dataTypeString(columnType)
+                        'type': dataTypeString(fieldTypes['column'])
                 ],
                 'yaxis': [
                         'id': fieldData.y.fieldId,
                         'name': fieldData.y.name,
                         'unit': fieldData.y.unit,
-                        'type': dataTypeString(rowType)
+                        'type': dataTypeString(fieldTypes['row'])
                 ],
 
         ])
@@ -227,7 +228,7 @@ class VisualizeController {
         def urlVars = "assayToken=" + assay.UUID
         try {
             callUrl = "" + assay.module.baseUrl + "/rest/getMeasurementMetaData/query?" + urlVars
-            def json = moduleCommunicationService.callModuleRestMethodJSON(assay.module.baseUrl /* consumer */, callUrl);
+            def json = moduleCommunicationService.callModuleRestMethodJSON(assay.module.baseUrl, callUrl);
 
             def collection = []
             json.each { jason ->
@@ -238,11 +239,18 @@ class VisualizeController {
                 // For getting this field from this assay
                 fields << ["id": createFieldId(id: field.name, name: field.name, source: "" + assay.id, type: "" + assay.name, unit: (field.unit ?: "")), "source": source, "category": "" + assay.name, "name": field.name + (field.unit ? " (" + field.unit + ")" : "")]
             }
+            
+            // Also add the 'all fields for assay x' option
+            fields << [
+                "id": createFieldId(id: "*", name: "*", source: "" + assay.id, type: "" + assay.name, unit: ""), 
+                "source": source, 
+                "category": "" + assay.name, "name": "[All " + collection.size() + " features]"
+            ]
         } catch (Exception e) {
             //returnError(404, "An error occured while trying to collect field data from a module. Most likely, this module is offline.")
             offlineModules.add(assay.module.id)
             infoMessageOfflineModules.add(assay.module.name)
-            log.error("VisualizationController: getFields: " + e)
+            log.error( "An error occurred while retrieving fields from " + assay.module + " for assay " + assay, e)
         }
 
         return fields
@@ -265,26 +273,12 @@ class VisualizeController {
             // All templated GSCF domain classes implement giveDomainFields via a domainFields property
             collection = domainObjectCallback(category)?.domainFields;
         else
-            collection = templateObjectCallback(category, study)?.template?.fields
+            collection = templateObjectCallback(category, study)?.fields
 
         collection?.unique()
 
         // Formatting the data
         fields += formatGSCFFields(type, collection, source, category)
-
-        // Outcommented this part to speed up feature fetching at expense of the possibility of presenting empty fields to the user
-
-        // Here we will remove those fields, whose set of datapoints only contain null
-        /*def fieldsToBeRemoved = []
-        fields.each { field ->
-            def fieldData = getFieldData(study, study.samples, field.id)
-            fieldData.removeAll([null])
-            if (fieldData == []) {
-                // Field only contained nulls, so don't show it as a visualization option
-                fieldsToBeRemoved << field
-            }
-        }
-        fields.removeAll(fieldsToBeRemoved)*/
 
         return fields
     }
@@ -366,20 +360,19 @@ class VisualizeController {
         // Retrieve the data for both axes for all samples
         // TODO: handle the case of multiple fields on an axis
         def fields = ["x": inputData.columnIds[0], "y": inputData.rowIds[0], "group": inputData.groupIds[0]];
-        def fieldInfo = [:]
-        fields.each {
-            fieldInfo[it.key] = parseFieldId(it.value)
-            if (fieldInfo[it.key])
-                fieldInfo[it.key].fieldType = determineFieldType(study.id, it.value);
-
+        def fieldInfo = parseFieldIds(fields)
+        
+        determineFieldTypes(studyId, fieldInfo).each { k, v ->
+            fieldInfo[k].fieldType = v
         }
 
-        // If the groupAxis is numerical, we should ignore it, unless a table is asked for
-        if (fieldInfo.group && fieldInfo.group.fieldType == NUMERICALDATA && inputData.visualizationType != "table") {
+        // If the groupAxis is numerical, we should ignore it, unless it is for grouping on all features or a table is asked for
+        if (fieldInfo.group && fieldInfo.group.fieldType == NUMERICALDATA && fieldInfo.group.name != '*' && inputData.visualizationType != "table") {
             fields.group = null;
             fieldInfo.group = null;
         }
 
+        // Enable charting of barcharts with numerical data on both axes
         if (fieldInfo.x.fieldType == NUMERICALDATA && fieldInfo.y.fieldType == NUMERICALDATA) {
             if (inputData.visualizationType == "horizontal_barchart") {
                 fieldInfo.y.fieldType = CATEGORICALDATA;
@@ -388,28 +381,28 @@ class VisualizeController {
             }
         }
 
-        println "Fields: "
-        fieldInfo.each { println it }
+        log.trace "Fields: "
+        fieldInfo.each { log.trace it }
 
         // Fetch all data from the system. data will be in the format:
         // 		[ "x": [ 3, 6, null, 10 ], "y": [ "male", "male", "female", "female" ], "group": [ "US", "NL", "NL", "NL" ]
         //	If a field is not given, the data will be NULL
         def data = getAllFieldData(study, samples, fields);
 
-        println "All Data: "
-        data.each { println it }
+        log.trace "All Data: "
+        data.each { log.trace it }
 
         // Aggregate the data based on the requested aggregation
         def aggregatedData = aggregateData(data, fieldInfo, inputData.aggregation);
 
-        println "Aggregated Data: "
-        aggregatedData.each { println it }
+        log.trace "Aggregated Data: "
+        aggregatedData.each { log.trace it }
 
         // No convert the aggregated data into a format we can use
         def returnData = formatData(inputData.visualizationType, aggregatedData, fieldInfo);
 
-        println "Returndata: "
-        returnData.each { println it }
+        log.trace "Returndata: "
+        returnData.each { log.trace it }
 
         // Make sure no changes are written to the database
         study.discard()
@@ -452,17 +445,72 @@ class VisualizeController {
     def getAllFieldData(study, samples, fields) {
         def fieldData = [:]
         def numValues = 0;
-        fields.each { field ->
-            def fieldId = field.value ?: null;
-            fieldData[field.key] = getFieldData(study, samples, fieldId);
+        def numSamples = samples.size()
+        
+        // Flag to keep track of whether the '*' is chosen
+        // for one or more of the fields. In that case, the other
+        // values should be repeated to make sure that there are
+        // enough items 
+        def multipleFieldsMultiplier = 1
+        
+        // Parse the field IDs
+        def parsedFields = parseFieldIds(fields)
+        
+        // Group the field IDs per source
+        // Only use the fields that we could parse.
+        def groupedParsedFields = parsedFields.values().findAll().groupBy { it.source }
 
-            if (fieldData[field.key])
-                numValues = Math.max(numValues, fieldData[field.key].size());
+        groupedParsedFields.each { source, sourceFields ->
+            if(source == "GSCF") {
+                // Determine field type for each field independently
+                sourceFields.each {
+                    fieldData[it.key] = getFieldData(study, samples, it)
+                }
+            } else {
+                // Data is in a module. Retrieve all data at once
+                def moduleData = getModuleData(study, samples, source, sourceFields*.name)
+                
+                sourceFields.each {
+                    if( it.name == '*' ) {
+                        // Concatenate the values and feature names for all features
+                        // If this field is chosen for X or Y, return the values
+                        // If this field is chosen on the Group axis, return the feature names
+                        def multipleFieldValues = []
+                        
+                        if( it.key == 'group' ) {
+                            moduleData.each  { fieldName, fieldValues ->
+                                multipleFieldValues += ( [fieldName] * numSamples )
+                            }
+                        } else {
+                            moduleData.each  { fieldName, fieldValues ->
+                                multipleFieldValues += fieldValues
+                            }
+                        }
+                        
+                        fieldData[it.key] = multipleFieldValues
+                        
+                        // Make sure to multiply all 'single' values later on 
+                        multipleFieldsMultiplier = moduleData.size() 
+                    } else {
+                        fieldData[it.key] = moduleData[it.name]
+                    }
+                }
+            }
         }
+        
+        // Handle the special case that for one or more axes the '*' is selected
+        if( multipleFieldsMultiplier > 1 ) {
+            fieldData.each { key, data ->
+                if( parsedFields[key].name != '*' ) {
+                    fieldData[key] = data * multipleFieldsMultiplier
+                }
+            }
+        }
+        
+        // Compute the number of values
+        fieldData.numValues = fieldData.values()*.size().max()
 
-        fieldData.numValues = numValues;
-
-        return fieldData;
+        fieldData
     }
 
     /**
@@ -492,6 +540,8 @@ class VisualizeController {
                     // Retrieve the value for the selected field for this sample
                     def value = closure(sample, parsedField.name);
 
+                    log.trace "  Retrieving " + parsedField.name + " for sample " + sample.UUID + ": " + value
+                    
                     data << value;
                 }
             } else {
@@ -518,65 +568,93 @@ class VisualizeController {
      * 						could not be retrieved for a sample, null is returned. Examples:
      * 							[ 3, 6, null, 10 ] or [ "male", "male", "female", "female" ]
      */
-    def getModuleData(study, samples, assay_id, fieldName) {
-        def data = []
+    protected def getModuleData(def study, def samples, def assay_id, String fieldName) {
+        def data = getModuleData(study, samples, assay_id, [fieldName])
+        return data[fieldName]
+    }
+
+    /**
+     * Retrieve data for a given field from a data module
+     * @param study Study to retrieve data for
+     * @param samples Samples to retrieve data for
+     * @param source_module Name of the module to retrieve data from
+     * @param fieldName Name of the measurement type to retrieve (i.e. measurementToken)
+     * @return A list of values of the selected field for all samples. If a value
+     *                                          could not be retrieved for a sample, null is returned. Examples:
+     *                                                  [ 3, 6, null, 10 ] or [ "male", "male", "female", "female" ]
+     */
+    protected def getModuleData(def study, def samples, def assay_id, List fieldNames) {
+        def data = [:]
 
         // TODO: Handle values that should be retrieved from multiple assays
         def assay = Assay.get(assay_id);
 
         if (assay) {
-            // Request for a particular assay and a particular feature
-            def urlVars = "assayToken=" + assay.UUID + "&measurementToken=" + fieldName.encodeAsURL()
-            urlVars += "&" + samples.collect { "sampleToken=" + it.UUID }.join("&");
+            // Request for a particular assay and one or more features
+            def urlVars = "verbose=true&assayToken=" + assay.UUID
+            
+            // However, if the fieldNames contains '*', data for all features 
+            // should be retrieved
+            if( !fieldNames.contains('*')) 
+                urlVars += "&" + fieldNames.collect { "measurementToken=" + it.encodeAsURL() }.join("&")
 
             def callUrl
             try {
                 callUrl = assay.module.baseUrl + "/rest/getMeasurementData"
+                log.trace "Retrieving data from assay " + assay
+                log.trace "  URL arguments: " + urlVars
                 def json = moduleCommunicationService.callModuleMethod(assay.module.baseUrl, callUrl, urlVars, "POST");
-
+                
+                log.trace "Parsing data from assay " + assay
+                
                 if (json) {
-                    // First element contains sampletokens
-                    // Second element contains the featurename
-                    // Third element contains the measurement value
-                    def sampleTokens = json[0]
-                    def measurements = json[2]
-
-                    // Loop through the samples
-                    samples.each { sample ->
-                        // Search for this sampletoken
-                        def sampleToken = sample.UUID;
-                        def index = sampleTokens.findIndexOf { it == sampleToken }
-
-                        // Store the measurement value if found and if it is not JSONObject$Null
-                        // See http://grails.1312388.n4.nabble.com/The-groovy-truth-of-JSONObject-Null-td3661040.html
-                        // for this comparison
-                        if (index > -1 && !measurements[index].equals(null)) {
-                            data << measurements[index];
-                        } else {
-                            data << null
+                    // We could have multiple features, so we will created a map
+                    // of not-null values, grouped by feature
+                    def valueMap = json.findAll { !it.value.equals(null) }.groupBy { it.measurementToken }
+                    
+                    // Now return a list of measurements for all samples  
+                    valueMap.each { measurementToken, measurements ->
+                        // Group by sampleToken as well
+                        def grouped = measurements.groupBy { it.sampleToken }
+                        
+                        // Now we can convert the map of values into a list of measurement values
+                        // for the samples we need data for
+                        data[measurementToken] = samples.collect { 
+                            def value = grouped[it.UUID]?.value?.get(0)
+                            
+                            log.trace "  Retrieving MODULE " + measurementToken + " for sample " + it.UUID + ": " + value
+                            
+                            value 
                         }
+                        
                     }
+
+                    log.trace "Finished converting all data"
                 } else {
                     // TODO: handle error
                     // Returns an empty list with as many elements as there are samples
-                    data = samples.collect { return null }
+                    fieldNames.each { 
+                        data[it] = samples.collect { return null }
+                    }
                 }
 
             } catch (Exception e) {
-                log.error("VisualizationController: getFields: " + e)
+                log.error("VisualizationController: getFields: " + e.getMessage(), e)
                 //return returnError(404, "An error occured while trying to collect data from a module. Most likely, this module is offline.")
                 return returnError(404, "Unfortunately, " + assay.module.name + " could not be reached. As a result, we cannot at this time visualize data contained in this module.")
             }
         } else {
             // TODO: Handle error correctly
             // Returns an empty list with as many elements as there are samples
-            data = samples.collect { return null }
+            fieldNames.each { 
+                data[it] = samples.collect { return null }
+            }
         }
-
-        //println "\t data request: "+data
+        
         return data
     }
 
+    
     /**
      * Aggregates the data based on the requested aggregation on the categorical fields
      * @param data Map with data for each dimension as retrieved using getAllFieldData. For example:
@@ -670,7 +748,7 @@ class VisualizeController {
             return 0;
         }
 
-        combined.sort(comparator as Comparator);
+        combined.sort(comparator);
 
         // Put the elements back again. First empty the original lists
         data.each {
@@ -752,6 +830,7 @@ class VisualizeController {
         def dimension = categoricalDimensions.head();
 
         // Determine the unique values on the categorical axis and sort by toString method
+        log.trace( "Data on dimension " + dimension + " -> " + data[dimension] )
         def unique = data[dimension].flatten()
                 .unique { it == null ? "null" : it.class.name + it.toString() }
                 .sort {
@@ -853,7 +932,7 @@ class VisualizeController {
      ]
      }*
      */
-	protected def formatData(type, groupedData, fieldInfo, xAxis = "x", yAxis = "y", serieAxis = "group", errorName = "error") {
+    protected def formatData(type, groupedData, fieldInfo, xAxis = "x", yAxis = "y", serieAxis = "group", errorName = "error") {
         // Format categorical axes by setting the names correct
         fieldInfo.each { field, info ->
             if (field && info) {
@@ -929,44 +1008,21 @@ class VisualizeController {
             return_data["series"] = [];
             HashMap dataMap = new HashMap();
 
-            List xValues = [];
-            groupedData[xAxis].eachWithIndex { category, i ->
-                if (!dataMap.containsKey(category)) {
-                    dataMap.put(category, []);
-                    xValues << category;
-                }
-                dataMap.put(category, dataMap.get(category) + groupedData[yAxis][i]);
-
+            if (fieldInfo[serieAxis] && fieldInfo[serieAxis].fieldType == NUMERICALDATA) {
+                // No numerical series field is allowed in a chart.
+                throw new Exception("No numerical series field is allowed here.");
             }
-
-            for (String key : xValues) {
-                def objInfos = computePercentile(dataMap.get(key), 50);
-                double dblMEDIAN = objInfos.get("value");
-                double Q1 = computePercentile(dataMap.get(key), 25).get("value");
-                double Q3 = computePercentile(dataMap.get(key), 75).get("value");
-
-                // Calcultate 1.5* inter-quartile-distance
-                double dblIQD = (Q3 - Q1) * 1.5;
-
-                /* // DEBUG
-                println("---");
-                println("  dataMap["+key+"]:: "+dataMap.get(key));
-                println("  dblMEDIAN:: "+dblMEDIAN);
-                println("  dblIQD:: "+dblIQD);
-                println("  Q1:: "+Q1);
-                println("  Q3:: "+Q3);
-                println("---");
-                */
-
+            
+            def boxplotData = computeBoxplotData(groupedData[xAxis], groupedData[yAxis], groupedData[serieAxis])
+            
+            boxplotData.each { serie, serieData ->
                 return_data["series"] << [
-                        "name": key,
-                        "y": [key, objInfos.get("max"), (dblMEDIAN + dblIQD), Q3, dblMEDIAN, Q1, (dblMEDIAN - dblIQD), objInfos.get("min")]
-                ];
+                    name: serie,
+                    x: serieData.keySet(),
+                    y: serieData.values()
+                ]
             }
-
-            //println(return_data);
-
-
+            
         } else {
             // For a horizontal barchart, the two axes should be swapped
             if (type == "horizontal_barchart") {
@@ -1008,6 +1064,49 @@ class VisualizeController {
         return return_data;
     }
 
+    /**
+     * Compute boxplot data
+     */
+    protected def computeBoxplotData( xAxisData, yAxisData, groupAxisData = null ) {
+        def groupedData = [:]
+        def boxplotData = [:]
+        
+        // Group the values on the y-axis
+        yAxisData.eachWithIndex { value, idx ->
+            def key = xAxisData[idx]
+            def groupKey = groupAxisData ? groupAxisData[idx] : "boxplot"
+            
+            if( !groupedData[groupKey] )
+                groupedData[groupKey] = [:]
+            
+            if( !groupedData[groupKey][key] )
+                groupedData[groupKey][key] = []
+
+            groupedData[groupKey][key] << value
+        }
+        
+        groupedData.each { serie, groupedValues->
+            boxplotData[serie] = [:]
+            groupedValues.each { key, values ->
+                def objInfos = computePercentile(values, 50);
+                double dblMEDIAN = objInfos.get("value");
+                double Q1 = computePercentile(values, 25).get("value");
+                double Q3 = computePercentile(values, 75).get("value");
+    
+                // Calcultate 1.5* inter-quartile-distance
+                double dblIQD = (Q3 - Q1) * 1.5;
+    
+                // Set min and max to be the whiskers, so the outliers do not change the axes
+                double min = (dblMEDIAN - dblIQD)
+                double max = (dblMEDIAN + dblIQD)
+                
+                boxplotData[serie][key] = [key, max, (dblMEDIAN + dblIQD), Q3, dblMEDIAN, Q1, (dblMEDIAN - dblIQD), min]
+            }
+        }
+    
+        return boxplotData
+    }
+    
     /**
      * Formats the requested data for a table
      * @param groupedData
@@ -1128,27 +1227,28 @@ class VisualizeController {
             case "Event":
             case "events":
                 return { sample, field ->
-                    if (!sample || !sample.parentEventGroup || !sample.parentEventGroup.events || sample.parentEventGroup.events.size() == 0)
+                    if (!sample || !sample.parentSubjectEventGroup || !sample.parentSubjectEventGroup.eventGroup || !sample.parentSubjectEventGroup.eventGroup.eventInstances )
                         return null
-
-                    return sample.parentEventGroup.events?.collect { getFieldValue(it, field) };
+                       
+                    def events = sample.parentSubjectEventGroup.eventGroup.eventInstances*.event.findAll()
+                    return events?.collect { getFieldValue(it, field) };
                 }
             case "EventGroup":
             case "eventGroups":
                 return { sample, field ->
-                    if (!sample || !sample.parentEventGroup)
+                    if (!sample || !sample.parentSubjectEventGroup || !sample.parentSubjectEventGroup.eventGroup)
                         return null
 
                     // For eventgroups only the name is supported
                     if (field == "name")
-                        return sample.parentEventGroup.name
+                        return sample.parentSubjectEventGroup.eventGroup.name
                     else
                         return null
                 }
 
             case "SamplingEvent":
             case "samplingEvents":
-                return { sample, field -> return getFieldValue(sample.parentEvent, field); }
+                return { sample, field -> return getFieldValue(sample?.parentEvent?.event, field); }
             case "Assay":
             case "assays":
                 return { sample, field ->
@@ -1197,33 +1297,33 @@ class VisualizeController {
     }
 
     /**
-     * Returns the objects within the given study that should be used with the given entity string
+     * Returns the templates for objects within the given study that should be used with the given entity string
      *
      * For example:
      * 		What object should be consulted if the user asks for "samples"
-     * 		Response: study.samples
-     * @return List of domain objects that should be used with the given entity string
+     * 		Response: all templates used for samples in the given study
+     * @return List of templates that should be used with the given entity string
      */
     protected def templateObjectCallback(String entity, Study study) {
         switch (entity) {
             case "Study":
             case "studies":
-                return study
+                return study?.template
             case "Subject":
             case "subjects":
-                return study?.subjects
+                return study?.giveSubjectTemplates()
             case "Sample":
             case "samples":
-                return study?.samples
+                return study?.giveSampleTemplates()
             case "Event":
             case "events":
-                return study?.events
+                return study?.giveEventTemplates()
             case "SamplingEvent":
             case "samplingEvents":
-                return study?.samplingEvents
+                return study?.giveSamplingEventTemplates()
             case "Assay":
             case "assays":
-                return study?.assays
+                return study?.giveAllAssayTemplates()
         }
     }
 
@@ -1449,6 +1549,28 @@ class VisualizeController {
 
         return attrs
     }
+    
+    /**
+     * Convenience method for field IDs that have already been parsed
+     */
+    protected Map parseFieldId(Map fieldId) {
+        fieldId
+    }
+    
+    /**
+     * Parse multiple field IDs at once
+     */
+    protected Map parseFieldIds(Map fieldIds) {
+        fieldIds.collectEntries { k, v ->
+            def parsedField = parseFieldId(v)
+            if( parsedField ) {
+                parsedField.key = k
+                [k, parsedField]
+            } else {
+                [:]
+            }
+        }
+    }
 
     /**
      * Returns a string representation of the given fieldType, which can be sent to the userinterface
@@ -1531,7 +1653,11 @@ class VisualizeController {
                     }
                 }
             } else {
-                if (inputData == null) { // If we did not get data, we need to request it from the module first
+                if( parsedField.name == '*' ) {
+                    // Treat 'all features' as numerical data
+                    return parsedField.key == 'group' ? CATEGORICALDATA : NUMERICALDATA
+                } else if (inputData == null) { 
+                    // If we did not get data, we need to request it from the module first
                     data = getModuleData(study, study.getSamples(), parsedField.source, parsedField.name);
                     return determineCategoryFromData(data)
                 } else {
@@ -1539,11 +1665,59 @@ class VisualizeController {
                 }
             }
         } catch (Exception e) {
-            log.error("VisualizationController: determineFieldType: " + e)
-            e.printStackTrace()
+            log.error("VisualizationController: determineFieldType: " + e.getMessage(), e)
             // If we cannot figure out what kind of a datatype a piece of data is, we treat it as categorical data
             return CATEGORICALDATA
         }
+    }
+    
+    /**
+     * Determines what type of data a field contains
+     * @param studyId An id that can be used with Study.get/1 to retrieve a study from the database
+     * @param fieldIds Map of the field ids as returned from the client, will be used to retrieve the data required to determine the type of data a field contains
+     * @return Map with either CATEGORICALDATA, NUMERICALDATA, DATE or RELTIME
+     */
+    protected Map determineFieldTypes(studyId, fieldIds) {
+        // By default, set all fields to NULL
+        def fieldTypes = fieldIds.collectEntries { k, v -> [k, null] }
+        def study = Study.get(studyId)
+        
+        // Combine fields per module
+        def parsedFields = parseFieldIds(fieldIds)
+        
+        // Only use the fields that we could parse.
+        parsedFields = parsedFields.values().findAll().groupBy { it.source }
+        
+        // Loop through all fields, and retrieve the data 
+        // from the modules in a single call. If data from
+        // GSCF is requested, just run the default determineFieldTypes method
+        try { 
+            parsedFields.each { source, fields ->
+                if(source == "GSCF") {
+                    // Determine field type for each field independently
+                    fields.each {
+                        fieldTypes[it.key] = determineFieldType(studyId, it.fieldId)
+                    }
+                } else {
+                    // Data is in a module. If the name '*' is given, don't take it into account 
+                    def fieldNames = fields*.name - '*'
+                    def moduleData = getModuleData(study, study.getSamples(), source, fieldNames);
+                    
+                    fields.each {
+                        // If all features from an assay are requested, treat is as numerical data
+                        // However, if the feature names are requested, it is categorical
+                        if( it.name == '*' )
+                            fieldTypes[it.key] = it.key == 'group' ? CATEGORICALDATA : NUMERICALDATA
+                        else
+                            fieldTypes[it.key] = determineCategoryFromData(moduleData[it.name]) 
+                    }
+                }
+            }
+        } catch( Exception e ) {
+            log.error( "Exception in getFieldTypes method", e )
+        } 
+        
+        fieldTypes
     }
 
     /**
@@ -1743,7 +1917,8 @@ class VisualizeController {
             if (columnType == CATEGORICALDATA || columnType == DATE || columnType == RELTIME) {
                 types = [["id": "barchart", "name": "Barchart"], ["id": "linechart", "name": "Linechart"], ["id": "boxplot", "name": "Boxplot"]];
             } else {
-                types = [["id": "scatterplot", "name": "Scatterplot"], ["id": "linechart", "name": "Linechart"], ["id": "barchart", "name": "Barchart"], ["id": "horizontal_barchart", "name": "Horizontal barchart"]];
+                // Only allow scatterplots for numerical/numerical charts
+                types = [["id": "scatterplot", "name": "Scatterplot"]];
             }
         }
         return types
@@ -1771,7 +1946,6 @@ class VisualizeController {
         //		Grouping on a numerical field is not possible. In that case, it is ignored
         //			Grouping on a numerical field with categorical data on both axes (table) enabled aggregation,
         //			In that case we can aggregate on the numerical field.
-
         if (rowType == CATEGORICALDATA || rowType == DATE || rowType == RELTIME) {
             if (columnType == CATEGORICALDATA || columnType == DATE || columnType == RELTIME) {
 
@@ -1790,7 +1964,21 @@ class VisualizeController {
                 }
             }
         }
-
+        
+        // Numerical data on both axes only allows scatterplot. 
+        if( rowType == NUMERICALDATA && columnType == NUMERICALDATA ) {
+            println "   --- groupType: " + groupType + " / " + CATEGORICALDATA
+            // When not grouping, disable aggregation
+            if( groupType != CATEGORICALDATA ) {
+                types.each {
+                    if( it.id != "none" )
+                        it.disabled = true
+                }
+            }
+        }
+        
+        println "-------------- TYPES --------------------"
+        types.each { println it }
         return types
     }
 }

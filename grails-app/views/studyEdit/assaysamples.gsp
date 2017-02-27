@@ -7,7 +7,7 @@
 	<r:require modules="studyEdit,gscf-datatables" />
 </head>
 <body>
-	<div class="studyEdit studySamples">
+	<div class="basicTabLayout studyEdit studySamples">
 		<h1>
 			<span class="truncated-title">
 				Edit study [${study.code?.encodeAsHTML()}]
@@ -15,29 +15,14 @@
 			<g:render template="steps" model="[study: study, active: 'assaysamples']"  />
 		</h1>
 		
-		<g:if test="${flash.error}">
-			<div class="errormessage">
-				${flash.error.toString().encodeAsHTML()}
-			</div>
-		</g:if>
-		<g:if test="${flash.message}">
-			<div class="message">
-				${flash.message.toString().encodeAsHTML()}
-			</div>
-		</g:if>	
+		<g:render template="/common/flashmessages" />
 		
-		<span class="info"> 
+		<span class="message info"> 
 			<span class="title">Associate samples to assays</span> 
 			Review the list of samples and specify the assays they have been analysed in.
 		</span>
 		
-		<g:if test="${flash.validationErrors}">
-			<div class="errormessage">
-				<g:each var="error" in="${flash.validationErrors}">
-					${error.value}<br />
-				</g:each>
-			</div>
-		</g:if>  
+		<g:render template="/common/flash_validation_messages" />
 		 
 		<g:form action="assaysamples" id="${study.id}" name="assaysamples">
 			<g:hiddenField name="_action" />
@@ -46,34 +31,30 @@
 			<table id="samplestable" data-formId="sampleForm" class="samplesTable selectMulti" rel="${g.createLink(action:"dataTableAssaySamples", id: study.id)}">
 				<thead>
 					<tr>
-					
-						<th>Sample</th>
-						<th>Subject</th>
-						<th>Eventgroup</th>
-						<th>Sampling event</th>
-						<th>Sample template</th>
-						<th>Starttime (combined)</th>
 						<g:each in="${study.assays.sort {it.name} }" var="assay">
 							<th class="assay" data-id="${assay.id}">${assay.name}</th>
 						</g:each>
+						<th>Sample</th>
+						<th>Subject</th>
+						<th>Group</th>
+						<th>Sampling event</th>
+						<th>Sample template</th>
+						<th>Starttime (combined)</th>
 					</tr>
 				</thead>
 				<tfoot>
-					<tr class="messagebar selectAll">
-						<td colspan="${study.assays.size() + 5}">
-							You selected all items on this page. Would you <a href="#">select all items on other pages</a> as well? 
-						</td>
-					</tr>
-					<tr class="messagebar saveChanges">
-						<td class="" colspan="${study.assays.size() + 5}">
+					<tr><td>
+						<div class="messagebar selectAll">
+							You selected all items on this page. Would you like to <a href="#">select all items on other pages</a> as well?
+						</div>						
+						<div class="messagebar saveChanges">
 							<span class="links">
 								<a href="#" onClick="StudyEdit.datatables.editable.save(this); return false;">Save</a> or 
 								<a href="#" onClick="StudyEdit.datatables.editable.discardChanges(this); return false;">Discard</a>
 							</span>
 							<span class="saving">Saving...</span>
-						</td>
-					</tr>
-											
+						</div>
+					</td></tr>
 				</tfoot>
 			</table>
 				

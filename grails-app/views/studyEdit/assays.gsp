@@ -7,7 +7,7 @@
 	<r:require modules="studyEdit,gscf-datatables" />
 </head>
 <body>
-	<div class="studyEdit studyAssays">
+	<div class="basicTabLayout studyEdit studyAssays">
 		<h1>
 			<span class="truncated-title">
 				Edit study [${study.code?.encodeAsHTML()}]
@@ -15,29 +15,14 @@
 			<g:render template="steps" model="[study: study, active: 'assays']"  />
 		</h1>
 		
-		<g:if test="${flash.error}">
-			<div class="errormessage">
-				${flash.error.toString().encodeAsHTML()}
-			</div>
-		</g:if>
-		<g:if test="${flash.message}">
-			<div class="message">
-				${flash.message.toString().encodeAsHTML()}
-			</div>
-		</g:if>	
+		<g:render template="/common/flashmessages" />
 		
-		<span class="info"> 
+		<span class="message info"> 
 			<span class="title">Edit assays or import more</span> 
 			Add or edit details about the assays done on the samples. Please note that on the next page you can specify which samples were handled in an assay.
 		</span>
-		
-		<g:if test="${flash.validationErrors}">
-			<div class="errormessage">
-				<g:each var="error" in="${flash.validationErrors}">
-					${error.value}<br />
-				</g:each>
-			</div>
-		</g:if>  
+
+		<g:render template="/common/flash_validation_messages" />
 		 
 		<g:form action="assays" name="assays">
 			<g:hiddenField name="_action" />
@@ -54,20 +39,18 @@
 						</tr>
 					</thead>
 					<tfoot>
-						<tr class="messagebar selectAll">
-							<td  colspan="${1 + domainFields.size() + template.getFields().size()}">
-								You selected all items on this page. Would you <a href="#">select all items on other pages</a> as well? 
-							</td>
-						</tr>						
-						<tr class="messagebar saveChanges">
-							<td class="" colspan="${1 + domainFields.size() + template.getFields().size()}">
+						<tr><td>
+							<div class="messagebar selectAll">
+								You selected all items on this page. Would you like to <a href="#">select all items on other pages</a> as well?
+							</div>						
+							<div class="messagebar saveChanges">
 								<span class="links">
 									<a href="#" onClick="StudyEdit.datatables.editable.save(this); return false;">Save</a> or 
 									<a href="#" onClick="StudyEdit.datatables.editable.discardChanges(this); return false;">Discard</a>
 								</span>
 								<span class="saving">Saving...</span>
-							</td>
-						</tr>
+							</div>
+						</td></tr>
 					</tfoot>
 				</table>
 				
@@ -82,12 +65,12 @@
 				
 	            <a class="separator add" href="#" data-url="${g.createLink( controller: "studyEdit", action: "addAssays", params: [ parentId: study.id ] )}" onClick="StudyEdit.assays.add(); return false;">
 	                Add
-	            </a>				
-	            <g:link class="import" controller="gdtImporter" action="index" params="[id: study?.id, template: 'assay']">
+	            </a>	
+				<g:link class="import" controller="importer" action="upload" params="['initial.study': study?.id, importer: 'Assays']">
 	                Import
 	            </g:link>				
 	            
-	            <a href="#" class="delete" onClick="StudyEdit.assays.delete(); return false;">Delete</a>				
+	            <a href="#" class="delete" onClick="StudyEdit.assays.deleteItem(); return false;">Delete</a>				
 			</p>				
 			
 			<br clear="all" />

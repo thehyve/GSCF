@@ -31,7 +31,7 @@ function onStudyWizardPage() {
         if (box.is(':checked')) {
             $( "#dialog-creative-commons" ).dialog({
                 resizable: false,
-                height:250,
+                height:350,
                 width: 800,
                 modal: true,
                 buttons: {
@@ -46,7 +46,7 @@ function onStudyWizardPage() {
             });
         }
     });
-
+    
 	// handle and initialize table(s)
 	tableEditor = new TableEditor().init({
 		tableIdentifier : 'div.tableEditor',
@@ -212,67 +212,6 @@ function showExampleReltime(inputfield) {
 		success : successFunc,
 		error   : errorFunc
 	});
-}
-
-/*************************************************
- *
- * Functions for file upload fields
- *
- ************************************************/
-
-// Create a file upload field
-function fileUploadField(field_id) {
-	/* example 2 */
-	new AjaxUpload('#upload_button_' + field_id, {
-		//action: 'upload.php',
-		action: baseUrl + '/file/upload', // I disabled uploads in this example for security reaaons
-		data : {},
-		name : field_id,
-		autoSubmit: true,
-		onChange : function(file, ext) {
-			oldFile = $('#' + field_id).val();
-			if (oldFile != '' && oldFile != 'existing*' && oldFile != '*deleted*' ) {
-				if (!confirm('The old file is deleted when uploading a new file. Do you want to continue?')) {
-					return false;
-				}
-			}
-
-			this.setData({
-				'field':   field_id,
-				'oldFile': oldFile
-			});
-
-			// Give feedback to the user
-			$('#' + field_id + 'Example').html('Uploading ' + createFileHTML(file));
-			$('#' + field_id + 'Delete').hide();
-
-		},
-		onComplete : function(file, response) {
-			if (response == "") {
-				$('#' + field_id).val('');
-				$('#' + field_id + 'Example').html('<span class="error">Error uploading ' + createFileHTML(file) + '</span>');
-				$('#' + field_id + 'Delete').hide();
-			} else {
-				// Sometimes, the response is returned with HTML tags. 
-				// It is unknown why this happens, but the tags are not needed.
-				response = response.replace(/<\/?[^>]+>/gi, '');
-
-				$('#' + field_id).val(response);
-				$('#' + field_id + 'Example').html('Uploaded ' + createFileHTML(file));
-				$('#' + field_id + 'Delete').show();
-			}
-		}
-	});
-}
-
-function deleteFile(field_id) {
-	$('#' + field_id).val('*deleted*');
-	$('#' + field_id + 'Example').html('File deleted');
-	$('#' + field_id + 'Delete').hide();
-}
-
-function createFileHTML(filename) {
-	return '<a target="_blank" href="' + baseUrl + '/file/get/' + filename + '">' + filename + '</a>';
 }
 
 /*************************************************
@@ -465,7 +404,7 @@ function enableButton(dialog_selector, button_name, enable) {
 
 	if (dlgButton) {
 		if (enable) {
-			dlgButton.attr('disabled', '');
+            dlgButton.removeAttr('disabled', '');
 			dlgButton.removeClass('ui-state-disabled');
 		} else {
 			dlgButton.attr('disabled', 'disabled');
@@ -723,6 +662,158 @@ function createUserDialog(element_id) {
  * Opens the dialog for searching a publication
  */
 function openUserDialog(element_id) {
+	// Empty input field
+	var field = $('#' + element_id);
+	field.val('');
+
+	// Show the dialog
+	$('#' + element_id + '_dialog').dialog('open');
+	field.focus();
+
+	// Disable 'Add' button
+	//enableButton( '.' + element_id + '_user_dialog', 'Add', false );
+}
+
+/*************************************************
+ *
+ * Functions for adding userGroups (readerGroups or writerGroups) to the study
+ *
+ ************************************************/
+
+/**
+ * Adds a user to the study using javascript
+ */
+function addUserGroup(element_id) {
+	/* Find publication ID and add to form */
+	id = parseInt($("#" + element_id + "_form select").val());
+
+	// Put the ID in the array, but only if it does not yet exist
+	var ids = getUserGroupIds(element_id);
+
+	if ($.inArray(id, ids) == -1) {
+		ids[ ids.length ] = id;
+		$('#' + element_id + '_ids').val(ids.join(','));
+
+		// Show the title and a remove button
+		showUserGroup(element_id, id, $("#" + element_id + "_form select option:selected").text(), ids.length - 1);
+
+		// Hide the 'none box'
+		$('#' + element_id + '_none').css('display', 'none');
+	}
+
+	return false;
+}
+
+/**
+ * Removes a userGroup from the study using javascript
+ * N.B. The deletion must be handled in grails when the form is submitted
+ */
+function removeUserGroup(element_id, id) {
+	var ids = getUserGroupIds(element_id);
+	if ($.inArray(id, ids) != -1) {
+		// Remove the ID
+		ids.splice($.inArray(id, ids), 1);
+		$('#' + element_id + '_ids').val(ids.join(','));
+
+		// Remove the title from the list
+		var li = $("#" + element_id + '_item_' + id);
+		if (li) {
+			li.remove();
+		}
+
+		// Show the 'none box' if needed
+		if (ids.length == 0) {
+			$('#' + element_id + '_none').css('display', 'inline');
+		}
+
+	}
+}
+
+/**
+ * Returns an array of userGroupIDs currently attached to the study
+ * The array contains integers
+ */
+function getUserGroupIds(element_id) {
+	var ids = $('#' + element_id + '_ids').val();
+	if (ids == "") {
+		return new Array();
+	} else {
+		ids_array = ids.split(',');
+		for (var i = 0; i < ids_array.length; i++) {
+			ids_array[ i ] = parseInt(ids_array[ i ]);
+		}
+
+		return ids_array;
+	}
+}
+
+/**
+ * Shows a publication on the screen
+ */
+function showUserGroup(element_id, id, groupName, nr) {
+	var deletebutton = document.createElement('img');
+	deletebutton.className = 'famfamfam delete_button';
+	deletebutton.setAttribute('alt', 'remove this usergroup');
+	deletebutton.setAttribute('src', baseUrl + '/plugins/famfamfam-1.0.1/images/icons/delete.png');
+	deletebutton.onclick = function() {
+		removeUserGroup(element_id, id);
+		return false;
+	};
+
+	var titleDiv = document.createElement('div');
+	titleDiv.className = 'groupName';
+	titleDiv.appendChild(document.createTextNode(groupName));
+
+	var li = document.createElement('li');
+	li.setAttribute('id', element_id + '_item_' + id);
+	li.className = nr % 2 == 0 ? 'even' : 'odd';
+	li.appendChild(deletebutton);
+	li.appendChild(titleDiv);
+
+	$('#' + element_id + '_list').append(li);
+}
+
+/**
+ * Creates the dialog for userGroup
+ */
+function createUserGroupDialog(element_id) {
+	/* Because of the AJAX loading of this page, the dialog will be created
+	 * again, when the page is reloaded. This raises problems when reading the
+	 * values of the selected publication. For that reason we check whether the
+	 * dialog already exists
+	 */
+	if ($("." + element_id + "_userGroup_dialog").length == 0) {
+		$("#" + element_id + "_dialog").dialog({
+			title   : "Add UserGroup",
+			autoOpen: false,
+			width   : 800,
+			height  : 400,
+			modal   : true,
+			dialogClass : element_id + "_userGroup_dialog",
+			position: "center",
+			buttons : {
+				Add  : function() {
+					addUserGroup(element_id);
+					$(this).dialog("close");
+				},
+				Close  : function() {
+					$(this).dialog("close");
+				}
+			},
+			close   : function() {
+				/* closeFunc(this); */
+			}
+		}).width(790).height(400);
+	} else {
+		/* If a dialog already exists, remove the new div */
+		$("#" + element_id + "_dialog").remove();
+	}
+}
+
+/**
+ * Opens the dialog for searching a publication
+ */
+function openUserGroupDialog(element_id) {
 	// Empty input field
 	var field = $('#' + element_id);
 	field.val('');

@@ -1,5 +1,6 @@
 import dbnp.authentication.SecRole
 import dbnp.authentication.SecUser
+import grails.util.Environment
 import org.codehaus.groovy.grails.commons.GrailsApplication
 import org.dbnp.gdt.*
 import dbnp.studycapturing.Study
@@ -7,6 +8,9 @@ import dbnp.studycapturing.Subject
 import dbnp.studycapturing.Sample
 import dbnp.rest.common.CommunicationManager
 import dbnp.configuration.*
+
+import dbnp.importer.impl.*
+import dbnp.importer.ImporterFactory
 
 /**
  * Application Bootstrapper
@@ -57,27 +61,22 @@ class BootStrap {
 			CommunicationManager.registerRestWrapperMethodsFromSAM()
 		}
 
-		// automatically handle database upgrades
-		DatabaseUpgrade.handleUpgrades(dataSource, grailsApplication)
+		// developmental/test template/ontology/study bootstrapping:
+		if (config.gscf.doBootstrapData == 'true') {
 
-		// developmental/test/demo bootstrapping:
-		//      - templates
-		//      - ontologies
-		//      - and/or studies
-		if (    grails.util.GrailsUtil.environment == GrailsApplication.ENV_DEVELOPMENT ||
-                grails.util.GrailsUtil.environment == GrailsApplication.ENV_TEST ||
-                grails.util.GrailsUtil.environment == "dbnpdemo") {
 			// add ontologies?
-			//if (!Ontology.count()) ExampleTemplates.initTemplateOntologies()
+			if (!Ontology.count()) ExampleTemplates.initTemplateOntologies()
 
 			// add templates?
 			if (!Template.count()) ExampleTemplates.initTemplates()
 
 			// add data required for the webtests?
-			if (grails.util.GrailsUtil.environment == GrailsApplication.ENV_TEST) ExampleStudies.addTestData()
+			if (Environment.current == Environment.TEST) ExampleStudies.addTestData()
+
+            println "Study COUNT: " + Study.count()
 
 			// add example studies?
-			if (!Study.count() && grails.util.GrailsUtil.environment == GrailsApplication.ENV_DEVELOPMENT)
+			if (!Study.count() && Environment.current == Environment.DEVELOPMENT)
 				ExampleStudies.addExampleStudies(SecUser.findByUsername('user'), SecUser.findByUsername('admin'))
 		}
 
@@ -88,14 +87,31 @@ class BootStrap {
 		 * @see dbnp.studycapturing.Sample
 		 */
 		TemplateEntity.getField(Subject.domainFields, 'species')
-                .ontologies = [
-            Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCBITAXON"),
-            Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/ENVO")
+				.ontologies = [
+				Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/NCBITAXON"),
+				Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/ENVO")
 		]
 		TemplateEntity.getField(Sample.domainFields, 'material')
-                .ontologies = [
-			Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/BTO")
+				.ontologies = [
+				Ontology.getOrCreateOntology("http://data.bioontology.org/ontologies/BTO")
 		]
+		
+		// Preventing SSL Handshake exception for HTTPS connections java 1.7 
+		// See http://stackoverflow.com/questions/7615645/ssl-handshake-alert-unrecognized-name-error-since-upgrade-to-java-1-7-0
+		System.setProperty "jsse.enableSNIExtension", "false";
+        
+                log.info("Register importers with factory")
+                def factory = ImporterFactory.getInstance()
+                factory.register(new SubjectsImporter() )
+                factory.register(new SamplesImporter() )
+                factory.register(new EventsImporter() )
+                factory.register(new SamplingEventsImporter() )
+                factory.register(new AssaysImporter() )
+                
+                factory.register(new org.dbxp.sam.importer.PlatformsImporter() )
+                factory.register(new org.dbxp.sam.importer.FeaturesImporter() )
+                factory.register(new org.dbxp.sam.importer.SampleLayoutMeasurementsImporter() )
+                factory.register(new org.dbxp.sam.importer.SubjectLayoutMeasurementsImporter() )
 	}
 
 	def destroy = {

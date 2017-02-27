@@ -1,0 +1,53 @@
+/** START :: study page upload buttons **/
+.fileWrapper {
+    width: 140px;
+}
+
+div .upload_button, div .upload_icon {
+    display: inline;
+}
+
+div .upload_button img {
+    border-width: 0;
+    padding-left: 6px;
+}
+
+div .upload_info {
+    display: inline; color: #006dba;
+    margin-left: 5px; 
+}
+
+div .upload_info a {
+	text-decoration: underline;
+}
+
+div .upload_del img {
+	border-width: 0;
+	padding-left: 6px; 
+}
+
+div .upload_del {
+	display: none;
+}
+
+div .upload_info .error {
+    color: red;
+}
+
+.upload_file_container{
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-width: 0;
+    position: relative;
+    background: url('/images/icons/folder_add.png'), no-repeat;
+}
+
+.upload_file_container input{
+    width: 16px;
+    height: 16px;
+    position: absolute;
+    opacity: 0;
+}
+
+/** END :: study page upload buttons **/

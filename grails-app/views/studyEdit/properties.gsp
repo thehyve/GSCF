@@ -7,7 +7,7 @@
 	<r:require modules="studyEdit" />
 </head>
 <body>
-	<div class="studyEdit studyProperties">
+	<div class="basicTabLayout studyEdit studyProperties">
 		<h1>
 			<span class="truncated-title">
 			<g:if test="${study?.id}">
@@ -20,30 +20,15 @@
 			<g:render template="steps" model="[study: study, active: 'study']" />
 		</h1>
 		
-		<g:if test="${flash.error}">
-			<div class="errormessage">
-				${flash.error.toString().encodeAsHTML()}
-			</div>
-		</g:if>
-		<g:if test="${flash.message}">
-			<div class="message">
-				${flash.message.toString().encodeAsHTML()}
-			</div>
-		</g:if>	
+		<g:render template="/common/flashmessages" />
 		
-		<span class="info"> 
+		<span class="message info"> 
 			<span class="title">Define the basic properties of your study</span> 
 			Enter all the basic information of your study. Keep in mind that the more specific the information that is
 			filled out, the more valuable the system will be.
 		</span>
 		
-		<g:if test="${flash.validationErrors}">
-			<div class="errormessage">
-				<g:each var="error" in="${flash.validationErrors}">
-					${error.value}<br />
-				</g:each>
-			</div>
-		</g:if>  
+		<g:render template="/common/flash_validation_messages" />
 		 
 		<g:form action="properties" name="studyProperties">
 			<g:hiddenField name="_action" />
@@ -67,10 +52,10 @@
 					<h2>Authorization</h2>
 					<div class="content">
 						<div class="element">
-							<div class="description">Public</div>
+							<div class="description">Public Design</div>
 							<div class="input"><g:checkBox name="publicstudy" value="${study?.publicstudy}"/></div>
 							<div class="helpIcon"></div>
-							<div class="helpContent">Public studies are visible to anonymous users, not only to the readers specified below.</div>
+							<div class="helpContent">Public design makes the design of the study visible to anonymous users, not only to the readers specified below. Assays have to be made public separately.</div>
 						</div>
 						%{--<div class="element">--}%
 							%{--<div class="description">Published</div>--}%
@@ -80,8 +65,11 @@
 							%{--<div class="helpContent">Determines whether this study is published (accessible for the study readers and, if the study is public, for anonymous users).</div>--}%
 						%{--</div>--}%
 				
-						<af:userSelectElement name="readers" noForm="true" description="Readers" value="${study?.readers}"/>
-						<af:userSelectElement name="writers" noForm="true" description="Writers" value="${study?.writers}"/>
+						<af:userSelectElement name="readers" noForm="true" description="Readers" value="${study?.readers?.sort() { it.username } }"/>
+						<af:userGroupSelectElement name="readerGroups" noForm="true" description="ReaderGroups" value="${study?.readerGroups?.sort() { it.groupName } }"/>
+						<af:userSelectElement name="writers" noForm="true" description="Writers" value="${study?.writers?.sort() { it.username } }"/>
+						<af:userGroupSelectElement name="writerGroups" noForm="true" description="WriterGroups" value="${study?.writerGroups?.sort() { it.groupName } }"/>
+                                                
 					</div>
 				</div>
 			</div>
@@ -116,7 +104,9 @@
 		
 		<af:publicationDialog name="publication" />
 		<af:userDialog name="readers" />
+                <af:userGroupDialog name="readerGroups" />
 		<af:userDialog name="writers" />
+                <af:userGroupDialog name="writerGroups" />
 		
 		<div id="openStudyDialog">
 			<p>

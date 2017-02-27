@@ -1,19 +1,11 @@
-<html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 	<meta name="layout" content="main"/>
 	<title>User profile</title>
-    <link rel="stylesheet" href="${resource(dir: 'css', file: 'tipTip.css')}"/>
-    <script type="text/javascript" src="${resource(dir: 'js', file: 'jquery.tipTip.minified.js')}"></script>
-    <script type="text/javascript">
-        $(document).ready(function() {
-            $(".tooltip").tipTip();
-        });
-    </script>
+	<r:require module="tiptip" />
 </head>
 
 <body>
-<div class="body" id="register">
 	<g:if test="${user.shibbolethUser}">
 		<table>
             <g:if test="user?.email">
@@ -52,7 +44,6 @@
 		</table>
 	</g:if>
 	<g:else>
-		<div class="inner">
 		<g:if test="${flash.message}"><div class='login_message'>${flash.message}</div></g:if>
 
 		<div class='fheader'>You can change your user details here. If you don't want to change your password, keep it empty.</div>
@@ -92,6 +83,14 @@
 					</tr>
 					<tr class="prop">
 						<td valign="top" class="name">
+							<label for="email">Email address</label>
+						</td>
+						<td valign="top" class="value ${hasErrors(bean: command, field: 'email', 'errors')}">
+							<g:textField disabled="disabled" name="email" value="${user?.email}"/>
+						</td>
+					</tr>
+					<tr class="prop">
+						<td valign="top" class="name">
 							<label for="password">Password</label>
 						</td>
 						<td valign="top" class="value ${hasErrors(bean: command, field: 'password', 'errors')}">
@@ -106,14 +105,6 @@
 							<g:passwordField name="password2" value=""/>
 						</td>
 					</tr>
-					<tr class="prop">
-						<td valign="top" class="name">
-							<label for="email">Email address</label>
-						</td>
-						<td valign="top" class="value ${hasErrors(bean: command, field: 'email', 'errors')}">
-							<g:textField name="email" value="${user?.email}"/>
-						</td>
-					</tr>
 					</tbody>
 				</table>
 			</div>
@@ -122,12 +113,10 @@
 				<g:each in="${extraparams}" var="param">
 					<input type="hidden" name="${param.key}" value="${param.value}">
 				</g:each>
-				<span class="button"><g:submitButton name="edit" class="save" value="Change profile"/></span>
-				<span class="button"><g:link class="cancel" controller="home">Cancel</g:link></span>
+
+				<span class="button"><g:submitButton name="edit" class="button-4 margin10 pie" value="Change profile"/></span>
+                <g:link class="cancel" controller="home"><input type="button" class="button-4 margin10 pie" value="Cancel"/></g:link>
 			</div>
 		</form>
 	</g:else>
-
-</div>
 </body>
-</html>
